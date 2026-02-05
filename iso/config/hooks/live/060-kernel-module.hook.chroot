@@ -1,0 +1,106 @@
+#!/bin/bash
+# LUCID EMPIRE :: Kernel Module Build Hook
+# AUTHORITY: Dva.12 | TITAN V5 FINAL
+#
+# Compiles the TITAN hardware masking kernel module during ISO build.
+# The module provides ring-0 hardware fingerprint masking.
+
+set -e
+
+MODULE_SRC_DIR="/opt/titan/hardware_shield"
+MODULE_INSTALL_DIR="/opt/lucid-empire/kernel-modules"
+MODULE_NAME="titan_hw"
+
+echo "[HOOK-KM] TITAN Kernel Module Build"
+echo "[HOOK-KM] ========================================"
+
+# Check if source directory exists
+if [[ ! -d "$MODULE_SRC_DIR" ]]; then
+    echo "[HOOK-KM] ERROR: Module source not found: $MODULE_SRC_DIR"
+    echo "[HOOK-KM] Skipping kernel module build"
+    exit 0
+fi
+
+# Check if kernel module source exists
+if [[ ! -f "$MODULE_SRC_DIR/${MODULE_NAME}.c" ]]; then
+    echo "[HOOK-KM] WARNING: Module source ${MODULE_NAME}.c not found"
+    echo "[HOOK-KM] This is expected during infrastructure setup phase"
+    echo "[HOOK-KM] Module will be implemented in future commit"
+    exit 0
+fi
+
+# Detect running kernel version
+KERNEL_VER=$(uname -r)
+echo "[HOOK-KM] Target kernel: $KERNEL_VER"
+
+# Install kernel headers if not present
+HEADERS_PKG="linux-headers-${KERNEL_VER}"
+if ! dpkg -l | grep -q "^ii.*${HEADERS_PKG}"; then
+    echo "[HOOK-KM] Installing kernel headers: $HEADERS_PKG"
+    apt-get update -qq
+    if apt-get install -y "$HEADERS_PKG" 2>/dev/null; then
+        echo "[HOOK-KM] Kernel headers installed successfully"
+    else
+        # Try generic headers as fallback
+        echo "[HOOK-KM] Specific headers not found, trying linux-headers-generic"
+        if apt-get install -y linux-headers-generic; then
+            echo "[HOOK-KM] Generic kernel headers installed"
+        else
+            echo "[HOOK-KM] ERROR: Could not install kernel headers"
+            echo "[HOOK-KM] Module compilation will fail"
+            exit 0
+        fi
+    fi
+else
+    echo "[HOOK-KM] Kernel headers already installed"
+fi
+
+# Navigate to module source
+cd "$MODULE_SRC_DIR"
+
+# Clean previous builds
+echo "[HOOK-KM] Cleaning previous builds..."
+make clean 2>/dev/null || true
+
+# Compile the module
+echo "[HOOK-KM] Compiling kernel module..."
+if make; then
+    echo "[HOOK-KM] ✓ Module compiled successfully"
+    
+    # Verify module was created
+    if [[ -f "${MODULE_NAME}.ko" ]]; then
+        echo "[HOOK-KM] ✓ Module file: ${MODULE_NAME}.ko"
+        
+        # Show module info
+        modinfo "${MODULE_NAME}.ko" 2>/dev/null || echo "[HOOK-KM] (modinfo not available)"
+        
+        # Install module
+        echo "[HOOK-KM] Installing module to $MODULE_INSTALL_DIR..."
+        mkdir -p "$MODULE_INSTALL_DIR"
+        cp "${MODULE_NAME}.ko" "$MODULE_INSTALL_DIR/"
+        chmod 644 "$MODULE_INSTALL_DIR/${MODULE_NAME}.ko"
+        
+        echo "[HOOK-KM] ✓ Module installed"
+        ls -lh "$MODULE_INSTALL_DIR/${MODULE_NAME}.ko"
+        
+        # Enable systemd service
+        echo "[HOOK-KM] Enabling lucid-titan.service..."
+        if systemctl enable lucid-titan.service 2>/dev/null; then
+            echo "[HOOK-KM] ✓ Service enabled"
+        else
+            echo "[HOOK-KM] WARNING: Could not enable service (may not be available in chroot)"
+        fi
+        
+    else
+        echo "[HOOK-KM] ERROR: Module file not created"
+        exit 1
+    fi
+else
+    echo "[HOOK-KM] ERROR: Module compilation failed"
+    echo "[HOOK-KM] Check build output above for errors"
+    echo "[HOOK-KM] Module will need to be compiled manually after boot"
+    exit 0
+fi
+
+echo "[HOOK-KM] ========================================"
+echo "[HOOK-KM] Kernel module build complete"

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LUCID EMPIRE TITAN
+GenericName=Anti-Detection Browser Console
+Comment=TITAN-class identity management and anti-fingerprinting system
+Exec=/opt/lucid-empire/launch-titan.sh
+Icon=preferences-system-privacy
+Terminal=false
+Categories=Network;WebBrowser;Security;System;
+Keywords=browser;antidetect;fingerprint;privacy;titan;identity;
+StartupNotify=true
+StartupWMClass=TITAN_CONSOLE

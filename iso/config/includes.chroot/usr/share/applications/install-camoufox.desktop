@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Install Camoufox
+GenericName=Browser Installer
+Comment=Download and install Camoufox anti-fingerprint browser
+Exec=x-terminal-emulator -e "sudo /opt/lucid-empire/install-camoufox.sh"
+Icon=system-software-install
+Terminal=false
+Categories=System;
+Keywords=install;browser;camoufox;

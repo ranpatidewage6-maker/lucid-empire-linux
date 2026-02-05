@@ -1,0 +1,305 @@
+﻿Comprehensive Analysis of Mozilla Firefox Profile Storage Architecture: SQLite Schema Specifications and Forensic Implementation Details
+1. Executive Summary and Architectural Evolution
+The storage architecture of the Mozilla Firefox web browser represents a sophisticated evolution from monolithic, flat-file data management to a highly decentralized, relational, and partitioned system. Modern Firefox profiles (specifically versions 115 and beyond, including the "Titan" class architectures referenced in advanced anti-detection frameworks) utilize a complex mesh of SQLite databases, compressed archives, and hierarchical directory structures to maintain user state.1 This report provides an exhaustive technical analysis of the persistence layer, focusing specifically on the schema specifications for cookies.sqlite, places.sqlite, and the Local Storage Next Generation (LSNG) filesystem.
+Historically, browser data was stored in proprietary formats such as Mork (history.dat) or simple text files (cookies.txt).3 These formats lacked transactional integrity, concurrent access capabilities, and the indexing speed required for the modern web. The transition to SQLite—a serverless, self-contained, transactional SQL database engine—allowed Firefox to implement robust relational models for history and bookmark management.5 However, as web applications evolved to require significant client-side storage (via the Web Storage API and IndexedDB), the limitations of a single SQLite file (webappsstore.sqlite) became apparent, necessitating the development of the Quota Manager and the partitioned storage architecture seen today.2
+In the context of advanced profile management systems like the "Lucid Empire" framework, understanding these internal structures is paramount. The ability to programmatically inject cookies, synthesize browsing history, and manipulate local storage without triggering fraud detection algorithms relies on a bit-perfect replication of these schemas, including proprietary hashing algorithms, timestamp formats, and compression headers.1 This report dissects these components to provide a definitive reference for forensic analysts and security researchers.
+1.1 The Filesystem Hierarchy and Profile Isolation
+The foundation of Firefox's data management is the profile directory. Firefox employs a "local-first" design, ensuring that all sensitive user data resides on the client's filesystem rather than in the cloud, unless Firefox Sync is explicitly enabled.1 This isolation is critical for security; each profile exists in a hermetically sealed directory, preventing data leakage between different user personas or sessions.1
+On Windows operating systems, the profile is split between two locations to accommodate roaming profiles in enterprise environments:
+* Roaming Data: Located in %APPDATA%\Mozilla\Firefox\Profiles\[random_string].default-release\. This directory contains the persistent "identity" of the browser, including places.sqlite, cookies.sqlite, permissions, and preferences (prefs.js).10
+* Local Data: Located in %LOCALAPPDATA%\Mozilla\Firefox\Profiles\[random_string].default-release\. This directory stores volatile data that does not need to be synchronized across machines, primarily the disk cache (cache2) and startup caches (startupCache).11
+In Linux environments, which are preferred for high-stealth operations (e.g., "TITAN Class" profiles using eBPF), the profile is typically consolidated in ~/.mozilla/firefox/[profile_id]/.1 The directory structure within a profile is rigid, and the presence or absence of specific files (like extensions/ or storage/) can serve as a fingerprint for the profile's age and usage level.1
+________________
+2. The History and Bookmark Ecosystem: places.sqlite
+The places.sqlite database is the central nervous system of the Firefox profile. It consolidates browsing history, bookmarks, favicons, and input history into a single relational database.13 This consolidation, known internally as the "Places" system, replaced the disparate history and bookmark files of Firefox 2 and earlier.14
+The database relies on a highly normalized schema to reduce data redundancy. For example, a URL visited thousands of times is stored only once in the moz_places table, while the temporal details of those visits are stored as linked rows in moz_historyvisits.6
+2.1 The moz_places Schema Specification
+The moz_places table acts as the registry for every unique page the user has ever interacted with. It contains metadata that defines the page's identity and its "value" to the user (frecency).13
+
+
+Column
+	Type
+	Description & Implementation Logic
+	id
+	INTEGER
+	Primary Key. A unique auto-incrementing integer used as a foreign key in other tables.6
+	url
+	LONGVARCHAR
+	The normalized URL string. Firefox stores protocols and domains in lowercase to ensure case-insensitive matching.6
+	title
+	LONGVARCHAR
+	The title of the page as parsed from the HTML <title> tag. Can be NULL if the page title was never captured.6
+	rev_host
+	LONGVARCHAR
+	Reversed Hostname. The domain is stored in reverse character order with a trailing dot (e.g., google.com becomes moc.elgoog.). This optimization allows the database to efficiently index and query subdomains using prefix matching (e.g., searching moc.elgoog.% finds all Google subdomains).16
+	visit_count
+	INTEGER
+	A counter incremented each time the user navigates to this URL. High counts contribute to higher frecency scores.6
+	hidden
+	INTEGER
+	A boolean flag (0 or 1). If set to 1, the page is excluded from the history sidebar and autocomplete results. This is often used for redirects or sub-frame loads.17
+	typed
+	INTEGER
+	A boolean flag indicating if the user explicitly typed this URL into the address bar. Typed URLs receive a significant boost in the frecency algorithm.15
+	frecency
+	INTEGER
+	A calculated score combining frequency and recency. This determines the order of results in the "Awesomebar" (address bar). The algorithm decays the score over time, prioritizing pages visited often and recently.19
+	last_visit_date
+	INTEGER
+	The timestamp of the most recent visit, stored in PRTime format (microseconds since the Unix epoch).6
+	guid
+	TEXT
+	A 12-character, base64-url-safe globally unique identifier. Used by Firefox Sync to track items across devices without ID collisions.20
+	url_hash
+	INTEGER
+	A 64-bit integer hash of the URL. Introduced in Firefox 50 to speed up URL lookups during inserts and updates. This hash is generated using a proprietary Mozilla algorithm.21
+	origin_id
+	INTEGER
+	A foreign key referencing the moz_origins table, grouping places by their origin (protocol + host).19
+	2.1.1 The rev_host Indexing Strategy
+The rev_host column is a critical architectural decision for performance. In standard SQL, searching for *.example.com requires a suffix match (LIKE '%example.com'), which cannot utilize standard B-Tree indexes efficiently because the wildcard is at the beginning of the string. By storing the host as moc.elpmaxe., Firefox can perform a prefix search (LIKE 'moc.elpmaxe.%'), which allows the query planner to utilize the index on the rev_host column, drastically reducing query time for history retrieval and autocomplete suggestions.16
+2.1.2 The url_hash Algorithm and Integrity
+The url_hash column is mandatory for data integrity in modern Firefox versions (v50+). When programmatically injecting history (as done by the "Genesis Engine" in the LUCID system), simply inserting a URL into moz_places without a valid hash will result in the browser failing to index or retrieve that entry correctly.21
+The hash is calculated using a 64-bit hashing function defined in the Mozilla source code (HashFunctions.h). While standard Python libraries do not implement this specific hash by default, forensic tools and injection scripts must import custom C-extensions or Python ports of this algorithm to generate valid profiles.21 The hash is derived from the normalized URL string and serves as a primary lookup key before the slower string comparison on the url column is performed.22
+2.1.3 The GUID Generation Logic
+The guid field uses a specialized format, distinct from standard RFC 4122 UUIDs. It consists of a 12-character string derived from a URL-safe Base64 alphabet (a-z, A-Z, 0-9, -, _).20 This provides 72 bits of entropy (  ), which is sufficient to prevent collisions within a single user's history while remaining compact. The "Genesis Engine" creates these GUIDs using a pseudo-random number generator to ensure that synthesized history entries appear indistinguishable from organically generated ones.1
+2.2 The moz_historyvisits Schema Specification
+While moz_places stores what was visited, moz_historyvisits stores when and how. This table is a journal of navigation events.6
+
+
+Column
+	Type
+	Description
+	id
+	INTEGER
+	Primary Key for the visit event.
+	from_visit
+	INTEGER
+	A foreign key referencing the id of a previous row in moz_historyvisits. This creates a linked list of visits, allowing the reconstruction of the "referral chain" or browsing session path.3 If 0, the visit was a direct entry (e.g., typed or bookmarked).
+	place_id
+	INTEGER
+	Foreign key referencing moz_places.id.13
+	visit_date
+	INTEGER
+	The timestamp of the visit in PRTime (microseconds).25
+	visit_type
+	INTEGER
+	An enumeration code describing the transition type (see section 2.3).16
+	session
+	INTEGER
+	An ephemeral ID grouping visits that occurred during the same browser session process.25
+	2.2.1 Temporal Forensics: The PRTime Format
+Firefox ubiquitously uses NSPR (Netscape Portable Runtime) timestamps, known as PRTime. Unlike standard Unix timestamps which count seconds since the epoch (1970-01-01 00:00:00 UTC), PRTime counts microseconds.27
+To convert a PRTime value (  ) to a human-readable Python datetime object:
+  
+
+  
+
+Conversely, to forge a timestamp for a history injection attack (as described in the "Time Displacement" module of the LUCID architecture), one must multiply the target Unix timestamp by 1,000,000.1
+2.3 Visit Type Codes and Behavioral Fingerprinting
+The visit_type integer is a critical forensic artifact. It tells the story of user behavior—whether they are clicking links, typing addresses, or being redirected. Anti-fraud systems analyze the ratio of these types to detect bot-like behavior (e.g., a bot might have 100% typed visits and 0% link transitions).1
+Type ID
+	Constant Name
+	Interpretation
+	1
+	TRANSITION_LINK
+	User clicked a link. Most common type.
+	2
+	TRANSITION_TYPED
+	User typed URL, pasted it, or used autocomplete.
+	3
+	TRANSITION_BOOKMARK
+	User accessed the page via a bookmark.
+	4
+	TRANSITION_EMBED
+	Resource loaded inside the page (iframe, image).
+	5
+	TRANSITION_REDIRECT_PERMANENT
+	HTTP 301/308 redirect.
+	6
+	TRANSITION_REDIRECT_TEMPORARY
+	HTTP 302/303/307 redirect.
+	7
+	TRANSITION_DOWNLOAD
+	Visit resulted in a file download.
+	8
+	TRANSITION_FRAMED_LINK
+	Link click occurred inside a frame.
+	9
+	TRANSITION_RELOAD
+	User reloaded the page.
+	For a profile to appear "aged" and "human," the moz_historyvisits table must contain a statistically natural distribution of these types. The "Genesis Engine" referenced in the research material specifically generates "browsing history consistency" by simulating a gradual discovery pattern: starting with search engine visits (TRANSITION_LINK), leading to competitor sites, and eventually direct visits (TRANSITION_TYPED) to target sites, mimicking a decision-making process.1
+________________
+3. The Cookie Storage Mechanism: cookies.sqlite
+Cookies are the primary vector for session persistence and tracking. Firefox stores them in cookies.sqlite, located in the profile root.10 The schema for this database has evolved to support modern web security standards, specifically the SameSite attribute and "Total Cookie Protection" (State Partitioning).31
+3.1 The moz_cookies Schema Specification
+The moz_cookies table definition has grown in complexity. As of 2024/2025 (Firefox v115+), the schema is defined as follows 30:
+
+
+SQL
+
+
+
+
+CREATE TABLE moz_cookies (
+   id INTEGER PRIMARY KEY,
+   baseDomain TEXT,
+   originAttributes TEXT NOT NULL DEFAULT '',
+   name TEXT,
+   value TEXT,
+   host TEXT,
+   path TEXT,
+   expiry INTEGER,
+   lastAccessed INTEGER,
+   creationTime INTEGER,
+   isSecure INTEGER,
+   isHttpOnly INTEGER,
+   inBrowserElement INTEGER DEFAULT 0,
+   sameSite INTEGER,
+   rawSameSite INTEGER,
+   CONSTRAINT moz_uniqueid UNIQUE (name, host, path, originAttributes)
+);
+
+3.1.1 Column Analysis and Privacy Features
+* originAttributes: This is the most significant addition for privacy. It is a string that defines the "container" or partition the cookie belongs to. In a standard browsing context, this might be empty. However, with Total Cookie Protection enabled, or when using Firefox Containers, this field contains key-value pairs (e.g., ^userContextId=1 for the "Personal" container, or ^partitionKey=(https,example.com) for partitioned third-party cookies).31 This ensures that a tracker cookie set on Site A cannot be read when the user visits Site B, effectively creating separate cookie jars for every website.31
+* baseDomain: Stores the eTLD+1 (Effective Top-Level Domain plus one label, e.g., google.com for mail.google.com). This allows for efficient querying of all cookies related to a specific site entity.33
+* expiry: Unlike the timestamp fields in places.sqlite, the expiry time for cookies is stored in seconds (standard Unix timestamp), not microseconds. This discrepancy is a common pitfall in forensic scripts.31
+* creationTime & lastAccessed: These remain in PRTime (microseconds), maintaining high-precision tracking of cookie age and usage.31
+* sameSite: This integer represents the enforcement level of the SameSite attribute, which controls when cookies are sent with cross-site requests.36
+   * 0 = Unspecified (Browsers now typically treat this as Lax by default).
+   * 1 = Lax (Sent on top-level navigations, but not on sub-resources like images).
+   * 2 = Strict (Sent only for first-party requests).
+   * 3 = None (Sent in all contexts; requires isSecure=1).
+3.2 Injection Strategies and Validation
+The research material details a "Cookie Baker" module that injects cookies into this database.1 To successfully inject a cookie that Firefox will recognize, the injection script must:
+1. Ensure the creationTime is in the past (backdated) to simulate age.
+2. Ensure lastAccessed is recent to prevent immediate eviction by the browser's cleanup routines.
+3. Correctly format the originAttributes string. An incorrect format (e.g., missing the leading ^ or using invalid delimiters) will cause Firefox to treat the cookie as corrupt or simply ignore it.32
+4. Maintain referential integrity with baseDomain. If host is .example.com, baseDomain must be example.com. Mismatches here can trigger sanitization routines that delete the record.32
+________________
+4. Local Storage Next Generation (LSNG) and the storage/ Directory
+Perhaps the most significant architectural shift in recent Firefox versions is the deprecation of the monolithic webappsstore.sqlite file in favor of the Local Storage Next Generation (LSNG) system.7 This new architecture, located in the storage/default/ directory, provides improved performance, quota management, and isolation.
+4.1 From Monolith to Partitioned Filesystem
+Previously, webappsstore.sqlite contained a simple key-value table for all domains. This created a single point of failure and performance contention. LSNG explodes this database into a directory structure where each origin (website) gets its own folder and its own SQLite database.9
+The path for a specific site's local storage is:
+[Profile Path]/storage/default//ls/data.sqlite
+4.2 The Origin Sanitization Algorithm
+The folder names in storage/default/ are not raw URLs. Firefox uses a sanitization algorithm to ensure the folder names are valid across all operating systems (Windows, Linux, macOS). The logic involves replacing special characters (like : and /) with the plus sign (+).9
+* Logic: +++ [Hostname]
+* Example 1: https://www.google.com becomes https+++www.google.com.
+* Example 2: http://localhost:8080 becomes http+++localhost+8080.
+* Example 3 (Extension): moz-extension:// becomes moz-extension+++.
+Furthermore, with State Partitioning, the folder name may append a partition key suffix to isolate third-party contexts: https+++tracker.com^partitionKey=(https,source-site.com) This ensures that tracker.com has a completely different storage bucket when loaded on source-site.com versus other-site.com.34
+4.3 The data.sqlite Schema and Snappy Compression
+Inside each origin's folder, the ls/data.sqlite file stores the actual LocalStorage data. Its schema is highly specialized for performance.9
+
+
+SQL
+
+
+
+
+CREATE TABLE data (
+   key TEXT PRIMARY KEY,
+   utf16_length INTEGER,
+   conversion_type INTEGER,
+   compression_type INTEGER,
+   value BLOB,
+   last_vacuum_size INTEGER
+);
+
+4.3.1 The value Blob: Snappy and Structured Clone
+The value column does not store plain text. It stores a binary blob that is often compressed using Snappy, a high-speed compression algorithm developed by Google.39
+* compression_type:
+   * 0: Uncompressed.
+   * 1: Compressed with Snappy.
+If compression_type is 1, the blob is a raw Snappy stream. Unlike some implementations, Firefox does not always include the standard Snappy frame header (ff 06 00 00...); it often stores the raw compressed block directly. To read this data programmatically (e.g., via Python), one must use a library like python-snappy to decompress the blob.39
+Once decompressed (or if uncompressed), the data is not a simple UTF-8 string. It is serialized using SpiderMonkey's Structured Clone algorithm.41 This format allows LocalStorage to hold complex JavaScript objects (Arrays, Maps, Sets, Blobs) rather than just strings. While the web specification for LocalStorage technically only supports strings, Firefox's internal storage implementation prepares for broader support and optimizes for internal object handling.43
+Forensic tools attempting to read this data must first check compression_type. If compressed, they must decompress via Snappy. Then, they must parse the Structured Clone binary format to extract the readable text or object structure.41
+4.4 The Role of ls-archive.sqlite
+During the migration from the legacy webappsstore.sqlite to LSNG, or during certain upgrade events, Firefox may create a file named ls-archive.sqlite.45 This file acts as a staging container. It uses the SQLite Archive (sqlar) format, which essentially treats an SQLite database as a ZIP file substitute.46 It contains a table with file paths, metadata, and data blobs. This file often persists in profiles that have been upgraded through multiple Firefox versions and serves as a significant forensic artifact for recovering older local storage data that may not have been fully accessed (and thus extracted) into the new directory structure.45
+________________
+5. Technical Implementation in Anti-Detect Systems
+The "LUCID EMPIRE" system described in the research material leverages these architectural details to fabricate "aged" profiles. The core of this capability lies in the Firefox Profile Injector module (backend/firefox_injector.py).1
+5.1 Profile Fabrication Workflow
+1. Directory Structure Generation: The system creates the sanitized directory paths in storage/default/ for target domains (e.g., https+++www.amazon.com) to simulate prior interaction with these sites.1
+2. Metadata Injection: It writes the binary .metadata-v2 files required by the Quota Manager to recognize these directories. Without this file, Firefox considers the directory corrupt and may wipe it.9
+3. Blob Synthesis: The system generates Snappy-compressed, Structured Clone-serialized blobs to populate data.sqlite. This allows the profile to have "persistent" login tokens (e.g., Stripe or Shopify session tokens) stored in LocalStorage immediately upon first launch.1
+4. Temporal Consistency: By hooking system time functions (libfaketime on Linux, API hooks on Windows), the system ensures that the creationTime in cookies.sqlite, the last_visit_date in places.sqlite, and the timestamps in the filesystem metadata of storage/default/ are synchronized to a specific past date (e.g., 60 days ago).1
+5.2 Network Layer Integration
+The profile storage is supported by a network stealth layer. On Linux, eBPF (Extended Berkeley Packet Filter) programs are loaded into the kernel to manipulate TCP timestamps at the packet level, ensuring they match the spoofed profile creation time.1 This holistic approach—modifying both the database files on disk and the network packets on the wire—defeats fraud detection systems that look for discrepancies between the browser's claimed history and its network behavior.
+________________
+6. Conclusion and Forensic Implications
+The architecture of Firefox's profile storage has matured into a highly segmented, privacy-oriented system. The shift from webappsstore.sqlite to the LSNG storage/default/ hierarchy, combined with the implementation of originAttributes in cookies.sqlite, reflects a fundamental hardening against cross-site tracking.
+For forensic analysts, this complexity means that a single "history file" no longer exists. Reconstructing a user's activity requires correlating data from places.sqlite, decoding originAttributes in cookies.sqlite, and traversing the sanitized folder structure of the storage/ directory to decompress Snappy blobs in data.sqlite.
+For anti-detect and automation developers, the bar for creating convincing fake profiles has risen. Simple file copying is insufficient; a valid profile requires the mathematical generation of GUIDs, the correct hashing of URLs, the precise formatting of Origin Attributes, and the binary synthesis of Structured Clone data. The existence of systems like "Titan" demonstrates that while these structures are complex, they are deterministic and can be effectively emulated with sufficient reverse engineering.
+Summary of Key Schema Data Points
+Artifact
+	Location
+	Critical Schema details
+	Key Algorithm/Format
+	History
+	places.sqlite
+	moz_places.url_hash, moz_places.rev_host
+	64-bit Hash, Host Reversal
+	Cookies
+	cookies.sqlite
+	originAttributes, sameSite, creationTime
+	JSON-like attributes, PRTime
+	Local Storage
+	storage/default/.../data.sqlite
+	compression_type, value
+	Snappy Compression, Structured Clone
+	Web Data
+	storage/default/...
+	Directory Naming
+	Sanitization (:    +)
+	This detailed understanding of the Firefox profile architecture provides the necessary foundation for both the investigation of digital artifacts and the development of sophisticated browser automation technologies.
+Works cited
+1. docs
+2. Firefox Data Stores, accessed on February 5, 2026, https://mozilla.github.io/firefox-browser-architecture/text/0010-firefox-data-stores.html
+3. Programmatically access browser history - firefox - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/54036/programmatically-access-browser-history
+4. Importing Cookies from a Firefox Profile in Python - The Shallow Sky, accessed on February 5, 2026, https://shallowsky.com/blog/programming/python-firefox-cookies.html
+5. Working with Firefox SQLite Databases - w3resource, accessed on February 5, 2026, https://www.w3resource.com/sqlite/snippets/firefox-sqlite-guide.php
+6. Mozilla Firefox Database Structure and Schema Diagram, accessed on February 5, 2026, https://databasesample.com/database/mozilla-firefox-database
+7. Which physical directory is the firefox's localstorage directory? - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/39846584/which-physical-directory-is-the-firefoxs-localstorage-directory
+8. PSA: Large webappsstore.sqlite file in your profile will heavily affect the responsiveness of Firefox's UI - Reddit, accessed on February 5, 2026, https://www.reddit.com/r/firefox/comments/40gbos/psa_large_webappsstoresqlite_file_in_your_profile/
+9. Local Storage and Session Storage in Mozilla Firefox (Part 1) - CCL Solutions Group, accessed on February 5, 2026, https://www.cclsolutionsgroup.com/post/local-storage-and-session-storage-in-mozilla-firefox-part-1
+10. Profiles - Where Firefox stores your bookmarks, passwords and other user data, accessed on February 5, 2026, https://support.mozilla.org/en-US/kb/profiles-where-firefox-stores-user-data
+11. Profiles are stored in two locations (local & roaming) but none of the articles I have read specify which to use OR both. | Firefox Support Forum, accessed on February 5, 2026, https://support.mozilla.org/questions/1233660
+12. Mozilla Firefox History Location - Foxton Forensics, accessed on February 5, 2026, https://www.foxtonforensics.com/browser-history-examiner/firefox-history-location
+13. Web Browser Forensics Part 2: Firefox Browser | by JSaxena - Medium, accessed on February 5, 2026, https://medium.com/@jsaxena017/web-browser-forensics-part-2-firefox-browser-3dc6ef104607
+14. Places.sqlite - MozillaZine Knowledge Base, accessed on February 5, 2026, https://kb.mozillazine.org/Places.sqlite
+15. Handle the data base of the History using SQL commands | Firefox Support Forum, accessed on February 5, 2026, https://support.mozilla.org/mk/questions/1265944
+16. Firefox places.sqlite exploration (browser history) - GitHub Gist, accessed on February 5, 2026, https://gist.github.com/olejorgenb/9418bef65c65cd1f489557cfc08dde96
+17. places.sqlite capped at 179,200 KB? : r/firefox - Reddit, accessed on February 5, 2026, https://www.reddit.com/r/firefox/comments/1i0j320/placessqlite_capped_at_179200_kb/
+18. Makes Firefox to show all hidden history entries? - Super User, accessed on February 5, 2026, https://superuser.com/questions/538997/makes-firefox-to-show-all-hidden-history-entries
+19. Combine tables with different foreign key values for same data (firefox), accessed on February 5, 2026, https://dba.stackexchange.com/questions/306841/combine-tables-with-different-foreign-key-values-for-same-data-firefox
+20. Where can I find the implementation of the PlacesUtils.history.makeGuid() function? - Reddit, accessed on February 5, 2026, https://www.reddit.com/r/firefox/comments/m8rj19/where_can_i_find_the_implementation_of_the/
+21. url_hash.py - GitHub Gist, accessed on February 5, 2026, https://gist.github.com/boppreh/a9737acb2abf015e6e828277b40efe71
+22. bencaradocdavies/sqlite-mozilla-url-hash: SQLite extension to calculate the url_hash used in places.sqlite by Mozilla Firefox 50 and later - GitHub, accessed on February 5, 2026, https://github.com/bencaradocdavies/sqlite-mozilla-url-hash
+23. Add or edit entry in Firefox history - Super User, accessed on February 5, 2026, https://superuser.com/questions/1290337/add-or-edit-entry-in-firefox-history
+24. Vshmuk/sqlite-mozilla-url-hash: JSON to Sqlite bookmarks importer for Mozilla Firefox, accessed on February 5, 2026, https://github.com/Vshmuk/sqlite-mozilla-url-hash
+25. How Firefox stores web history - Lowmanio, accessed on February 5, 2026, https://lowmanio.co.uk/2010/06/09/how-firefox-stores-web-history/
+26. Browser history logs - NXLog Platform Documentation, accessed on February 5, 2026, https://docs.nxlog.co/integrate/browser-history.html
+27. PR_ExplodeTime — Firefox Source Docs documentation, accessed on February 5, 2026, https://firefox-source-docs.mozilla.org/nspr/reference/pr_explodetime.html
+28. PRTime to datetime in Python - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/2515782/prtime-to-datetime-in-python
+29. time — Time access and conversions — Python 3.14.3 documentation, accessed on February 5, 2026, https://docs.python.org/3/library/time.html
+30. Cookies.sqlite - MozillaZine Knowledge Base, accessed on February 5, 2026, http://kb.mozillazine.org/Cookies.sqlite
+31. Firefox cookie database - Just Solve the File Format Problem, accessed on February 5, 2026, http://justsolve.archiveteam.org/wiki/Firefox_cookie_database
+32. All cookies are lost after restarting Firefox, cookies.sqlite is gone - Bugzilla@Mozilla, accessed on February 5, 2026, https://bugzilla.mozilla.org/show_bug.cgi?id=1601499
+33. how can I find the cookies files to specific websites? - Ask Ubuntu, accessed on February 5, 2026, https://askubuntu.com/questions/1066986/how-can-i-find-the-cookies-files-to-specific-websites
+34. What are "partitionKey" folders in default storage, why are they needed, why does Firefox need a separate folder for root domain name requests, and why doees it insert a dot at the end of a folder name? - Reddit, accessed on February 5, 2026, https://www.reddit.com/r/firefox/comments/1gydfma/what_are_partitionkey_folders_in_default_storage/
+35. creationTime, expiry, lastAccessed time of cookies - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/18471818/creationtime-expiry-lastaccessed-time-of-cookies
+36. cookies.SameSiteStatus - Mozilla - MDN Web Docs, accessed on February 5, 2026, https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/cookies/SameSiteStatus
+37. Error in local storage - NS_ERROR_FILE_CORRUPTED - firefox - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/18877643/error-in-local-storage-ns-error-file-corrupted-firefox
+38. Where does Firefox store javascript/HTML localStorage? - Stack Overflow, accessed on February 5, 2026, https://stackoverflow.com/questions/7079075/where-does-firefox-store-javascript-html-localstorage
+39. Firefox localStorage database (data.sqlite) – how to read "value" column binary (blob) data?, accessed on February 5, 2026, https://stackoverflow.com/questions/76283577/firefox-localstorage-database-data-sqlite-how-to-read-value-column-binary
+40. Snappy (compression) - Wikipedia, accessed on February 5, 2026, https://en.wikipedia.org/wiki/Snappy_(compression)
+41. Parsing FB-Purity's Firefox idb (Indexed Database API) object_data blob from Linux bash, accessed on February 5, 2026, https://stackoverflow.com/questions/54920939/parsing-fb-puritys-firefox-idb-indexed-database-api-object-data-blob-from-lin
+42. Window: structuredClone() method - Web APIs | MDN, accessed on February 5, 2026, https://developer.mozilla.org/en-US/docs/Web/API/Window/structuredClone
+43. Surviving the Structured Clone algorithm | by Andrea Giammarchi - Medium, accessed on February 5, 2026, https://webreflection.medium.com/surviving-the-structured-clone-algorithm-130608b69f47
+44. Window: localStorage property - Web APIs | MDN, accessed on February 5, 2026, https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage
+45. what is ls-archive.sqlite for? : r/firefox - Reddit, accessed on February 5, 2026, https://www.reddit.com/r/firefox/comments/wupdu8/what_is_lsarchivesqlite_for/
+46. SQLite Archive Files, accessed on February 5, 2026, https://www.sqlite.org/sqlar.html
+47. ActorsParent.cpp - mozsearch - Searchfox, accessed on February 5, 2026, https://searchfox.org/firefox-main/source/dom/localstorage/ActorsParent.cpp

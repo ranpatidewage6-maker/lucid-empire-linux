@@ -73,18 +73,28 @@ class HardwareProfileBuilder:
     
     def generate_dmi_identifiers(self):
         """Generate DMI/SMBIOS identifiers"""
-        manufacturers = ["Dell Inc.", "HP", "Lenovo", "ASUS", "MSI"]
-        products = ["OptiPlex 7090", "EliteDesk 800", "ThinkCentre M90q", "ROG Strix", "Prestige"]
+        # Realistic manufacturer/product combinations
+        hardware_combos = [
+            {"vendor": "Dell Inc.", "product": "OptiPlex 7090"},
+            {"vendor": "Dell Inc.", "product": "Precision 5560"},
+            {"vendor": "HP", "product": "EliteDesk 800 G8"},
+            {"vendor": "HP", "product": "ZBook Studio G8"},
+            {"vendor": "Lenovo", "product": "ThinkCentre M90q"},
+            {"vendor": "Lenovo", "product": "ThinkStation P340"},
+            {"vendor": "ASUS", "product": "ROG Strix G15"},
+            {"vendor": "ASUS", "product": "ProArt StudioBook"},
+            {"vendor": "MSI", "product": "Prestige 15"},
+            {"vendor": "MSI", "product": "Creator Z16"},
+        ]
         
-        selected_mfg = random.choice(manufacturers)
-        selected_prod = random.choice(products)
+        selected = random.choice(hardware_combos)
         generated_uuid = str(uuid.uuid4())
         
         dmi_data = {
-            "product_name": selected_prod,
+            "product_name": selected["product"],
             "product_uuid": generated_uuid,
-            "board_vendor": selected_mfg,
-            "sys_vendor": selected_mfg,
+            "board_vendor": selected["vendor"],
+            "sys_vendor": selected["vendor"],
         }
         
         for key, value in dmi_data.items():

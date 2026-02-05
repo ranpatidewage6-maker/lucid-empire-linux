@@ -12,9 +12,17 @@ INSTALL_MOD_DIR ?= /opt/lucid-empire/kernel-modules
 MODULE_FILE := $(MODULE_NAME).ko
 
 # Build targets
-.PHONY: all clean install uninstall test
+.PHONY: all clean install uninstall test help check-source
 
-all:
+check-source:
+@if [ ! -f "$(MODULE_NAME).c" ]; then \
+echo "ERROR: Source file $(MODULE_NAME).c not found"; \
+echo "The kernel module source needs to be implemented before building."; \
+echo "See titan_hw_stub.txt for implementation notes."; \
+exit 1; \
+fi
+
+all: check-source
 @echo "Building TITAN hardware masking module..."
 $(MAKE) -C $(KERNEL_BUILD) M=$(PWD) modules
 @echo "Module built successfully: $(MODULE_FILE)"

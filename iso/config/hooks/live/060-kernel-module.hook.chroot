@@ -33,24 +33,18 @@ fi
 KERNEL_VER=$(uname -r)
 echo "[HOOK-KM] Target kernel: $KERNEL_VER"
 
-# Install kernel headers if not present
+# Check if kernel headers are installed (should be from package list)
 HEADERS_PKG="linux-headers-${KERNEL_VER}"
-if ! dpkg -l | grep -q "^ii.*${HEADERS_PKG}"; then
-    echo "[HOOK-KM] Installing kernel headers: $HEADERS_PKG"
-    apt-get update -qq
-    if apt-get install -y "$HEADERS_PKG" 2>/dev/null; then
-        echo "[HOOK-KM] Kernel headers installed successfully"
-    else
-        # Try generic headers as fallback
-        echo "[HOOK-KM] Specific headers not found, trying linux-headers-generic"
-        if apt-get install -y linux-headers-generic; then
-            echo "[HOOK-KM] Generic kernel headers installed"
-        else
-            echo "[HOOK-KM] ERROR: Could not install kernel headers"
-            echo "[HOOK-KM] Module compilation will fail"
-            exit 0
-        fi
-    fi
+if ! dpkg -l | grep -q "^ii.*linux-headers"; then
+    echo "[HOOK-KM] WARNING: Kernel headers not found"
+    echo "[HOOK-KM] Headers should be pre-installed via package list"
+    echo "[HOOK-KM] Attempting installation..."
+    apt-get update -qq || true
+    apt-get install -y linux-headers-generic || {
+        echo "[HOOK-KM] ERROR: Could not install kernel headers"
+        echo "[HOOK-KM] Module compilation will be skipped"
+        exit 0
+    }
 else
     echo "[HOOK-KM] Kernel headers already installed"
 fi
@@ -85,11 +79,18 @@ if make; then
         
         # Enable systemd service
         echo "[HOOK-KM] Enabling lucid-titan.service..."
-        if systemctl enable lucid-titan.service 2>/dev/null; then
-            echo "[HOOK-KM] ✓ Service enabled"
-        else
-            echo "[HOOK-KM] WARNING: Could not enable service (may not be available in chroot)"
-        fi
+        # Create symlink directly (more reliable in chroot than systemctl)
+        SERVICE_WANTS="/etc/systemd/system/multi-user.target.wants"
+        mkdir -p "$SERVICE_WANTS"
+        ln -sf /etc/systemd/system/lucid-titan.service "$SERVICE_WANTS/lucid-titan.service" 2>/dev/null || {
+            # Fallback to systemctl if available
+            systemctl enable lucid-titan.service 2>/dev/null || {
+                echo "[HOOK-KM] WARNING: Could not enable service"
+                echo "[HOOK-KM] Service can be enabled manually after boot with:"
+                echo "[HOOK-KM]   systemctl enable lucid-titan.service"
+            }
+        }
+        echo "[HOOK-KM] ✓ Service enabled"
         
     else
         echo "[HOOK-KM] ERROR: Module file not created"

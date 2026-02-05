@@ -15,6 +15,7 @@ openssh-server
 
 # --- Development Tools ---
 build-essential
+gcc
 git
 vim
 curl
@@ -25,6 +26,10 @@ cmake
 pkg-config
 libssl-dev
 libffi-dev
+# Hardware Shield compilation requires:
+libgl-dev
+mesa-common-dev
+libx11-dev
 
 # --- eBPF / XDP Tools (Kernel-Level Sovereignty) ---
 # Required for network packet manipulation at the NIC driver level
@@ -55,15 +60,22 @@ nftables
 # Source: [cite: 1]
 libfaketime
 
-# --- Browser Dependencies (Camoufox Base) ---
-# Dependencies for building/running the modified Firefox engine
-# Source: [cite: 1, 5]
+# --- Standard Browsers (TITAN V5 FINAL - No Fork Edition) ---
+# We use VANILLA binaries with OS-level deception (LD_PRELOAD)
+# The Hardware Shield intercepts system calls, not the browser
+# Source: [cite: 1, 5] | Architecture: Naked Browser Protocol
 firefox-esr
+chromium
+chromium-sandbox
 libgtk-3-0
 libdbus-glib-1-2
 libasound2
 libx11-xcb1
 libxtst6
+
+# --- Browser Profile Automation (Genesis Engine) ---
+# Playwright for headless profile building before handover
+python3-playwright
 
 # --- Process Isolation (Cgroups/Namespaces) ---
 # Source: [cite: 1]

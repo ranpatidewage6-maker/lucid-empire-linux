@@ -1,11 +1,14 @@
 """
-LUCID EMPIRE v5.0-TITAN - Firefox Profile Injector V2
-======================================================
-Advanced Firefox/Camoufox profile injection with:
+LUCID EMPIRE v5.0-TITAN - Firefox Profile Injector V2 (No-Fork Edition)
+========================================================================
+Advanced Firefox ESR profile injection with:
 - SQLite database injection (places.sqlite, cookies.sqlite)
 - LSNG (Local Storage Next Generation) with Snappy compression
 - Form history injection
 - Extension state management
+
+Used by the Genesis Engine to build "Golden Profiles" that are
+then handed over to the standard Firefox ESR binary.
 """
 
 import hashlib

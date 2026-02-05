@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 #===============================================================================
-#  LUCID EMPIRE TITAN - Custom Linux ISO Builder
-#  Version: 5.0-TITAN
+#  LUCID EMPIRE TITAN - Custom Linux ISO Builder (No-Fork Edition)
+#  Version: 5.0-TITAN-NOFORK
+#  Architecture: Naked Browser Protocol
 #  
 #  Builds a customized Ubuntu-based live ISO with:
 #    - TITAN Anti-Detection Console
-#    - eBPF/XDP network stack manipulation
-#    - Camoufox browser integration
+#    - eBPF/XDP network stack manipulation  
+#    - Hardware Shield (LD_PRELOAD library for GPU/CPU spoofing)
+#    - Standard Firefox ESR / Chromium with OS-level deception
+#    - Genesis Engine handover protocol
 #    - Pre-configured privacy and security hardening
 #===============================================================================
 
@@ -26,7 +29,7 @@ WORKDIR="$PROJECT_ROOT/iso"
 BUILD_LOG="$PROJECT_ROOT/build-$(date +%Y%m%d-%H%M%S).log"
 
 # TITAN Build Configuration
-TITAN_VERSION="5.0-TITAN"
+TITAN_VERSION="5.0-TITAN-NOFORK"
 ISO_NAME="lucid-empire-titan"
 ISO_PUBLISHER="LUCID EMPIRE"
 ISO_VOLUME="LUCID_TITAN"
@@ -108,10 +111,13 @@ prepare_titan_files() {
         log "  - Set executable: launch-titan.sh"
     fi
     
-    if [[ -f "$titan_dir/install-camoufox.sh" ]]; then
-        chmod +x "$titan_dir/install-camoufox.sh"
-        log "  - Set executable: install-camoufox.sh"
-    fi
+    # Set executable on browser launchers
+    for launcher in "$titan_dir/bin/"*; do
+        if [[ -f "$launcher" ]]; then
+            chmod +x "$launcher"
+            log "  - Set executable: $(basename $launcher)"
+        fi
+    done
     
     # Set executable permissions on hooks
     local hooks_dir="$WORKDIR/config/hooks/live"
@@ -120,13 +126,16 @@ prepare_titan_files() {
         log "  - Set executable on all hooks"
     fi
     
-    # Verify core files exist
+    # Verify core files exist (No-Fork Edition)
     local required_files=(
         "$titan_dir/TITAN_CONSOLE.py"
         "$titan_dir/backend/__init__.py"
         "$titan_dir/backend/zero_detect.py"
         "$titan_dir/backend/genesis_engine.py"
         "$titan_dir/backend/firefox_injector_v2.py"
+        "$titan_dir/backend/handover_protocol.py"
+        "$titan_dir/lib/hardware_shield.c"
+        "$titan_dir/lib/Makefile"
         "$titan_dir/requirements.txt"
     )
     
@@ -136,7 +145,7 @@ prepare_titan_files() {
         fi
     done
     
-    log "TITAN components prepared"
+    log "TITAN components prepared (No-Fork Edition)"
 }
 
 create_titan_hook() {
@@ -146,12 +155,12 @@ create_titan_hook() {
     
     cat > "$hook_file" << 'HOOKEOF'
 #!/bin/bash
-# LUCID EMPIRE TITAN - Final Setup Hook
+# LUCID EMPIRE TITAN - Final Setup Hook (No-Fork Edition)
 # This runs inside the chroot during ISO build
 
 set -e
 
-echo "[TITAN] Running final setup..."
+echo "[TITAN] Running final setup (No-Fork Edition)..."
 
 TITAN_HOME="/opt/lucid-empire"
 
@@ -163,9 +172,17 @@ if [[ -f "${TITAN_HOME}/requirements.txt" ]]; then
     }
 fi
 
-# Set permissions
+# Set permissions on launchers
 chmod +x "${TITAN_HOME}/launch-titan.sh" 2>/dev/null || true
-chmod +x "${TITAN_HOME}/install-camoufox.sh" 2>/dev/null || true
+chmod +x "${TITAN_HOME}/bin/"* 2>/dev/null || true
+
+# Compile Hardware Shield
+echo "[TITAN] Compiling Hardware Shield..."
+if [[ -f "${TITAN_HOME}/lib/Makefile" ]]; then
+    make -C "${TITAN_HOME}/lib" || {
+        echo "[TITAN] Warning: Hardware Shield compilation failed (will compile on first boot)"
+    }
+fi
 
 # Create user data directory structure
 mkdir -p /etc/skel/.lucid-empire/{profiles,logs,cache,commerce_vault}
@@ -180,10 +197,11 @@ echo "kernel.unprivileged_bpf_disabled=0" >> /etc/sysctl.d/99-titan-bpf.conf
 echo "net.core.bpf_jit_enable=1" >> /etc/sysctl.d/99-titan-bpf.conf
 
 # Create TITAN version file
-echo "TITAN_VERSION=5.0-TITAN" > "${TITAN_HOME}/VERSION"
+echo "TITAN_VERSION=5.0-TITAN-NOFORK" > "${TITAN_HOME}/VERSION"
 echo "BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${TITAN_HOME}/VERSION"
+echo "ARCHITECTURE=Naked Browser Protocol" >> "${TITAN_HOME}/VERSION"
 
-echo "[TITAN] Setup complete"
+echo "[TITAN] Setup complete (No-Fork Edition)"
 HOOKEOF
 
     chmod +x "$hook_file"

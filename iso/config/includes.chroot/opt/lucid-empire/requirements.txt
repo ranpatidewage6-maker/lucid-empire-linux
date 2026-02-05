@@ -1,5 +1,9 @@
-# LUCID EMPIRE TITAN v5.0 - Python Dependencies
-# =============================================
+# LUCID EMPIRE TITAN v5.0 - Python Dependencies (No-Fork Edition)
+# ================================================================
+# Architecture: Naked Browser Protocol
+# - Standard Firefox ESR / Chromium with Hardware Shield
+# - Genesis Engine for profile warmup and handover
+# - eBPF for network fingerprint masquerading
 
 # GUI Framework
 PyQt6>=6.5.0

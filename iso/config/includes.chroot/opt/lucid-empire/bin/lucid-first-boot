@@ -221,21 +221,30 @@ if [[ "${create_profile,,}" != "n" ]]; then
 fi
 
 # =============================================================================
-# Step 6: Camoufox Browser Installation
+# Step 6: Hardware Shield Compilation
 # =============================================================================
 echo ""
-echo -e "${CYAN}[6/6] Camoufox Browser Installation${NC}"
+echo -e "${CYAN}[6/6] Hardware Shield Compilation${NC}"
 echo "─────────────────────────────────────────────────────────────"
+echo -e "${YELLOW}The Hardware Shield intercepts GPU/CPU queries from browsers${NC}"
+echo -e "${YELLOW}to report the identity's hardware instead of the real machine.${NC}"
+echo ""
 
-if [[ -d "$TITAN_HOME/camoufox" ]]; then
-    log "Camoufox already installed"
+if [[ -f "$TITAN_HOME/lib/libhardwareshield.so" ]]; then
+    log "Hardware Shield already compiled"
 else
-    read -p "Install Camoufox anti-detect browser? [Y/n]: " install_camoufox
-    if [[ "${install_camoufox,,}" != "n" ]]; then
-        if [[ -x "$TITAN_HOME/install-camoufox.sh" ]]; then
-            "$TITAN_HOME/install-camoufox.sh" | tee -a "$LOG_FILE"
+    read -p "Compile Hardware Shield (LD_PRELOAD library)? [Y/n]: " compile_shield
+    if [[ "${compile_shield,,}" != "n" ]]; then
+        if [[ -f "$TITAN_HOME/lib/Makefile" ]]; then
+            echo -e "${CYAN}[*] Compiling Hardware Shield...${NC}"
+            make -C "$TITAN_HOME/lib" | tee -a "$LOG_FILE"
+            if [[ -f "$TITAN_HOME/lib/libhardwareshield.so" ]]; then
+                log "Hardware Shield compiled successfully"
+            else
+                warn "Hardware Shield compilation may have failed"
+            fi
         else
-            warn "Camoufox installer not found"
+            warn "Hardware Shield Makefile not found"
         fi
     fi
 fi

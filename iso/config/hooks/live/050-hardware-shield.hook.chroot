@@ -1,0 +1,38 @@
+#!/bin/bash
+# LUCID EMPIRE :: Hardware Shield Compilation Hook
+# AUTHORITY: Dva.12 | TITAN V5 FINAL
+#
+# This hook compiles the Hardware Shield (LD_PRELOAD library)
+# during ISO build. The compiled library intercepts:
+# - WebGL GPU queries (glGetString)
+# - CPU core count (sysconf)
+# - /proc/cpuinfo and /proc/meminfo reads (fopen)
+#
+# This enables standard Firefox ESR / Chromium to report
+# fake hardware without any browser modifications.
+
+set -e
+
+LUCID_ROOT="/opt/lucid-empire"
+SHIELD_SRC="${LUCID_ROOT}/lib/hardware_shield.c"
+SHIELD_OUT="${LUCID_ROOT}/lib/libhardwareshield.so"
+
+echo "[HOOK] Compiling Hardware Shield..."
+
+# Check for source
+if [[ ! -f "$SHIELD_SRC" ]]; then
+    echo "[HOOK] WARNING: Hardware Shield source not found: $SHIELD_SRC"
+    exit 0
+fi
+
+# Compile
+cd "${LUCID_ROOT}/lib"
+if make; then
+    echo "[HOOK] Hardware Shield compiled successfully"
+    ls -la "$SHIELD_OUT"
+else
+    echo "[HOOK] WARNING: Hardware Shield compilation failed"
+    echo "[HOOK] The library will need to be compiled on first boot"
+fi
+
+echo "[HOOK] Hardware Shield hook complete"

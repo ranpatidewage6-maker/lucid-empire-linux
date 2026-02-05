@@ -517,15 +517,15 @@
             </div>
             {% endif %}
             <div class="browser-grid">
-                <div class="browser-btn" onclick="launchBrowser('camoufox')" {% if not active_profile %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
-                    <div class="icon">🦊</div>
-                    <div class="name">Camoufox</div>
-                    <div class="desc">Anti-Fingerprint Firefox Fork</div>
-                </div>
                 <div class="browser-btn" onclick="launchBrowser('firefox')" {% if not active_profile %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
-                    <div class="icon">🔥</div>
-                    <div class="name">Firefox</div>
-                    <div class="desc">Stock Firefox + TITAN Profile</div>
+                    <div class="icon">🦊</div>
+                    <div class="name">Firefox (Shielded)</div>
+                    <div class="desc">Firefox ESR + Hardware Shield</div>
+                </div>
+                <div class="browser-btn" onclick="launchBrowser('chromium')" {% if not active_profile %}style="opacity: 0.5; pointer-events: none;"{% endif %}>
+                    <div class="icon">🌐</div>
+                    <div class="name">Chromium (Shielded)</div>
+                    <div class="desc">Chromium + Hardware Shield</div>
                 </div>
                 <div class="browser-btn" onclick="openTitanConsole()" style="border-color: var(--accent-purple);">
                     <div class="icon">🎛️</div>

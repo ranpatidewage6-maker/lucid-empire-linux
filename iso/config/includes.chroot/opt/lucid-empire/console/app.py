@@ -298,14 +298,18 @@ def api_delete_profile(name):
 
 @app.route('/api/browser/launch', methods=['POST'])
 def api_launch_browser():
-    """API: Launch browser with active profile."""
+    """API: Launch browser with active profile.
+    
+    TITAN V5 FINAL - No-Fork Edition:
+    Uses standard Firefox ESR / Chromium with Hardware Shield.
+    """
     data = request.json or {}
-    browser = data.get('browser', 'camoufox')
+    browser = data.get('browser', 'firefox')
     
     browser_map = {
-        'camoufox': '/opt/lucid-empire/bin/lucid-browser',
-        'firefox': '/opt/lucid-empire/bin/lucid-browser',
-        'default': '/opt/lucid-empire/bin/lucid-browser'
+        'firefox': '/opt/lucid-empire/bin/lucid-firefox',
+        'chromium': '/opt/lucid-empire/bin/lucid-chromium',
+        'default': '/opt/lucid-empire/bin/lucid-firefox'
     }
     
     cmd = browser_map.get(browser, browser_map['default'])
@@ -315,7 +319,7 @@ def api_launch_browser():
     
     try:
         subprocess.Popen([cmd], start_new_session=True)
-        return jsonify({'success': True, 'message': f'{browser} launched'})
+        return jsonify({'success': True, 'message': f'{browser} launched with Hardware Shield'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

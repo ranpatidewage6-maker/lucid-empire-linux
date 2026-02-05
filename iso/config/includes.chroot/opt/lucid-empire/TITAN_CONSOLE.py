@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """
-LUCID EMPIRE v5.0-TITAN Console
-================================
+LUCID EMPIRE v5.0-TITAN Console (No-Fork Edition)
+==================================================
 Main GUI application for TITAN anti-detection system.
-Provides profile management, browser launching, and system monitoring.
+
+ARCHITECTURE: Naked Browser Protocol
+- Standard Firefox ESR / Chromium (no forks)
+- Hardware Shield (LD_PRELOAD) for GPU/CPU spoofing 
+- Genesis Engine for profile warmup and handover
+- eBPF for network fingerprint masquerading
+
+AUTHORITY: Dva.12 | TITAN V5 FINAL
 """
 
 import json
@@ -37,6 +44,7 @@ from backend.zero_detect import ZeroDetectEngine, ZeroDetectProfile
 from backend.genesis_engine import GenesisEngine
 from backend.firefox_injector_v2 import FirefoxProfileInjectorV2
 from backend.validation.preflight_validator import PreFlightValidator
+from backend.handover_protocol import HandoverProtocol, ProfileSpec
 
 
 class TitanStyles:
@@ -396,9 +404,8 @@ class TitanConsole(QMainWindow):
         browser_layout = QGridLayout(browser_group)
         
         browsers = [
-            ("🦊 Camoufox", "camoufox", "Anti-fingerprint Firefox fork"),
-            ("🔥 Firefox", "firefox", "Standard Firefox with profile"),
-            ("🌍 Chromium", "chromium", "Chromium with flags"),
+            ("🦊 Firefox (Shielded)", "firefox", "Standard Firefox ESR + Hardware Shield"),
+            ("🌍 Chromium (Shielded)", "chromium", "Chromium + Hardware Shield"),
         ]
         
         for i, (name, browser_id, desc) in enumerate(browsers):
@@ -484,9 +491,9 @@ class TitanConsole(QMainWindow):
         actions_group = QGroupBox("System Actions")
         actions_layout = QHBoxLayout(actions_group)
         
-        install_btn = QPushButton("📥 Install Camoufox")
-        install_btn.clicked.connect(self.install_camoufox)
-        actions_layout.addWidget(install_btn)
+        compile_btn = QPushButton("🔧 Compile Hardware Shield")
+        compile_btn.clicked.connect(self.compile_hardware_shield)
+        actions_layout.addWidget(compile_btn)
         
         reload_btn = QPushButton("🔄 Reload eBPF")
         reload_btn.clicked.connect(self.reload_ebpf)
@@ -594,14 +601,12 @@ class TitanConsole(QMainWindow):
         self.log_launch(f"Launching {browser_type}...")
         
         try:
-            if browser_type == "camoufox":
-                cmd = ["/opt/lucid-empire/bin/lucid-browser"]
-            elif browser_type == "firefox":
+            if browser_type == "firefox":
                 cmd = ["/opt/lucid-empire/bin/lucid-firefox"]
             elif browser_type == "chromium":
                 cmd = ["/opt/lucid-empire/bin/lucid-chromium"]
             else:
-                cmd = ["firefox"]
+                cmd = ["firefox-esr"]
             
             subprocess.Popen(cmd, start_new_session=True)
             self.log_launch(f"{browser_type} launched successfully")
@@ -715,16 +720,33 @@ class TitanConsole(QMainWindow):
         
         self.profiles_label.setText(str(len(self.engine.list_profiles())))
     
-    def install_camoufox(self):
-        """Launch Camoufox installer."""
+    def compile_hardware_shield(self):
+        """Compile the Hardware Shield LD_PRELOAD library."""
         try:
-            subprocess.Popen(
-                ["x-terminal-emulator", "-e", "sudo /opt/lucid-empire/install-camoufox.sh"],
-                start_new_session=True
+            result = subprocess.run(
+                ["make", "-C", "/opt/lucid-empire/lib"],
+                capture_output=True,
+                text=True
             )
-            self.status_bar.showMessage("Camoufox installer launched")
+            if result.returncode == 0:
+                self.status_bar.showMessage("Hardware Shield compiled successfully")
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    "Hardware Shield (libhardwareshield.so) compiled!\n\n"
+                    "The library will now intercept:\n"
+                    "• WebGL GPU queries (glGetString)\n"
+                    "• CPU core count (sysconf)\n"
+                    "• /proc/cpuinfo reads (fopen)"
+                )
+            else:
+                QMessageBox.warning(
+                    self, 
+                    "Compile Error", 
+                    f"Hardware Shield compilation failed:\n{result.stderr}"
+                )
         except Exception as e:
-            QMessageBox.warning(self, "Error", f"Failed to launch installer: {e}")
+            QMessageBox.warning(self, "Error", f"Failed to compile: {e}")
     
     def reload_ebpf(self):
         """Reload eBPF programs."""

@@ -1,15 +1,17 @@
 #!/bin/bash
 # =============================================================================
-# LUCID EMPIRE TITAN - Main Launcher
+# LUCID EMPIRE TITAN - Main Launcher (No-Fork Edition)
 # =============================================================================
-# Initializes environment and launches TITAN Console GUI
+# ARCHITECTURE: Naked Browser Protocol
+# - Standard Firefox ESR / Chromium with Hardware Shield
+# - No forked browsers - true sovereignty
 # =============================================================================
 
 set -e
 
 TITAN_HOME="/opt/lucid-empire"
 TITAN_DATA="${HOME}/.lucid-empire"
-CAMOUFOX_PATH="${TITAN_HOME}/camoufox"
+HARDWARE_SHIELD="${TITAN_HOME}/lib/libhardwareshield.so"
 LOG_DIR="${TITAN_DATA}/logs"
 VENV_PATH="${TITAN_HOME}/venv"
 
@@ -21,7 +23,8 @@ LOG_FILE="${LOG_DIR}/titan-$(date +%Y%m%d-%H%M%S).log"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 
 echo "=============================================="
-echo "  LUCID EMPIRE v5.0-TITAN"
+echo "  LUCID EMPIRE v5.0-TITAN (No-Fork Edition)"
+echo "  Architecture: Naked Browser Protocol"
 echo "  Starting Console..."
 echo "=============================================="
 echo ""
@@ -29,10 +32,12 @@ echo "[$(date)] TITAN Console starting..."
 echo "[$(date)] Data directory: ${TITAN_DATA}"
 echo "[$(date)] Log file: ${LOG_FILE}"
 
-# Check for Camoufox installation
-if [[ ! -d "${CAMOUFOX_PATH}" ]]; then
-    echo "[$(date)] WARNING: Camoufox not found at ${CAMOUFOX_PATH}"
-    echo "[$(date)] Run: sudo ${TITAN_HOME}/install-camoufox.sh"
+# Check for Hardware Shield
+if [[ -f "${HARDWARE_SHIELD}" ]]; then
+    echo "[$(date)] Hardware Shield: COMPILED"
+else
+    echo "[$(date)] WARNING: Hardware Shield not compiled"
+    echo "[$(date)] Run: make -C ${TITAN_HOME}/lib"
 fi
 
 # Check for eBPF capabilities
@@ -45,7 +50,6 @@ fi
 # Set environment variables
 export TITAN_HOME
 export TITAN_DATA
-export CAMOUFOX_PATH
 export PYTHONDONTWRITEBYTECODE=1
 export QT_AUTO_SCREEN_SCALE_FACTOR=1
 

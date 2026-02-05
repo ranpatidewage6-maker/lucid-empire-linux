@@ -1,15 +1,14 @@
 # =============================================================================
-# Lucid Empire v5.0-TITAN - Package List
+# Lucid Empire v5.0-TITAN - Package List (Debian 12 Bookworm)
 # =============================================================================
 # This package list defines all software required for the TITAN architecture.
 # Source: Unified Agent [cite: 1, 14, 16]
 
 # --- Core System ---
-ubuntu-standard
-ubuntu-desktop-minimal
-casper
-ubiquity
-ubiquity-frontend-gtk
+task-desktop
+live-boot
+live-config
+live-config-systemd
 network-manager
 openssh-server
 
@@ -34,10 +33,8 @@ libx11-dev
 # --- eBPF / XDP Tools (Kernel-Level Sovereignty) ---
 # Required for network packet manipulation at the NIC driver level
 # Source: [cite: 1, 14, 16]
-linux-headers-generic
-bpfcc-tools
+linux-headers-amd64
 libbpf-dev
-bpftrace
 iproute2
 
 # --- Python Environment ---
@@ -66,16 +63,14 @@ libfaketime
 # Source: [cite: 1, 5] | Architecture: Naked Browser Protocol
 firefox-esr
 chromium
-chromium-sandbox
 libgtk-3-0
 libdbus-glib-1-2
 libasound2
 libx11-xcb1
 libxtst6
 
-# --- Browser Profile Automation (Genesis Engine) ---
-# Playwright for headless profile building before handover
-python3-playwright
+# --- Browser Profile Automation - REMOVED PER REQUIREMENTS ---
+# Playwright is forbidden in "Zero Automation" policy
 
 # --- Process Isolation (Cgroups/Namespaces) ---
 # Source: [cite: 1]
@@ -88,18 +83,18 @@ sqlite3
 tree
 htop
 tmux
-gnome-tweaks
-gpartedunzip
+unzip
 p7zip-full
 
 # --- GUI Framework (PyQt6 for TITAN Console) ---
-python3-pyqt6
-python3-pyqt6.qtwebengine
+# python3-pyqt6
+# python3-pyqt6.qtwebengine
+# Note: PyQt6 may not be available in Debian 12, will install via pip
 
 # --- Database & Storage (Firefox Profile Injection) ---
 # Required for LSNG storage manipulation
 libsnappy-dev
-python3-snappy
+# python3-snappy - not available in Debian 12, will install via pip
 
 # --- Cryptography & Hashing ---
 libsodium-dev
@@ -107,10 +102,10 @@ python3-cryptography
 python3-nacl
 
 # --- Web Framework (Backend API & Console) ---
-python3-fastapi
-python3-uvicorn
+# python3-fastapi - not in Debian 12
+# python3-uvicorn - not in Debian 12
 python3-requests
-python3-httpx
+# python3-httpx - not in Debian 12
 python3-aiohttp
 python3-flask
 python3-jinja2
@@ -147,7 +142,7 @@ linux-firmware
 firmware-linux
 
 # --- Additional eBPF/BPF Tools ---
-bpftool
+# bpftool - not in Debian 12 repos
 libelf-dev
 zlib1g-dev
 

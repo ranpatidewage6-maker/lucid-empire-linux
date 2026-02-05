@@ -81,8 +81,35 @@ lb config \
     --distribution bookworm \
     --archive-areas "main contrib non-free-firmware" \
     --architectures amd64 \
+    --mode debian \
+    --debian-installer live \
+    --parent-mirror-bootstrap "http://deb.debian.org/debian/" \
+    --parent-mirror-chroot "http://deb.debian.org/debian/" \
+    --parent-mirror-chroot-security "http://deb.debian.org/debian-security/" \
+    --parent-mirror-binary "http://deb.debian.org/debian/" \
+    --parent-mirror-binary-security "http://deb.debian.org/debian-security/" \
+    --security-updates true \
+    --volatile false \
+    --backports false \
     --linux-packages "linux-image linux-headers" \
     --bootappend-live "boot=live components quiet splash persistence"
+
+# Fix the security repository name for Debian 12 (bookworm)
+# In Debian 12, the security repo changed from /updates to -security
+sed -i 's/^LB_VOLATILE="true"/LB_VOLATILE="false"/' config/chroot
+sed -i 's/^LB_SECURITY="true"/LB_SECURITY="false"/' config/chroot
+sed -i 's/^LB_KEYRING_PACKAGES="ubuntu-keyring"/LB_KEYRING_PACKAGES="debian-archive-keyring"/' config/chroot
+sed -i 's|http://archive.ubuntu.com/ubuntu/|none|g' config/bootstrap
+sed -i 's|http://security.ubuntu.com/ubuntu/|none|g' config/bootstrap
+
+# Create custom archives list with correct security repo
+cat > config/archives/bookworm.list.chroot << 'ARCHEOF'
+deb http://deb.debian.org/debian/ bookworm main contrib non-free-firmware
+deb-src http://deb.debian.org/debian/ bookworm main contrib non-free-firmware
+deb http://deb.debian.org/debian-security/ bookworm-security main contrib non-free-firmware
+deb-src http://deb.debian.org/debian-security/ bookworm-security main contrib non-free-firmware
+ARCHEOF
+cp config/archives/bookworm.list.chroot config/archives/bookworm.list.binary
 
 # 6. Build
 echo "[*] Building ISO Image (This may take significant time)..."

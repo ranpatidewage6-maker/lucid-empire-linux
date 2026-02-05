@@ -1,0 +1,33 @@
+# Build artifacts
+build*.log
+*.iso
+*.sha256
+
+# Live-build cache and temporary files
+iso/cache/
+iso/chroot/
+iso/.build/
+iso/binary/
+iso/binary.*/
+iso/local/
+iso/.disk/
+iso/.stage
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

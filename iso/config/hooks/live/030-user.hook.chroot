@@ -1,0 +1,63 @@
+#!/bin/sh
+# =============================================================================
+# Lucid Empire v5.0-TITAN - User Setup Hook
+# =============================================================================
+# Creates the default user account and configures the environment
+# for TITAN operations.
+#
+# Source: Unified Agent [cite: 1]
+
+set -e
+
+USER_NAME="${USER_NAME:-titan}"
+USER_PASSWORD="${USER_PASSWORD:-lucid2026}"
+
+echo "[USER] Setting up user: $USER_NAME"
+
+# Create user if not exists
+if ! id "$USER_NAME" >/dev/null 2>&1; then
+    useradd -m -s /bin/bash -G sudo,adm,cdrom,audio,video,plugdev "$USER_NAME"
+    echo "$USER_NAME:$USER_PASSWORD" | chpasswd
+    echo "[USER] User $USER_NAME created"
+fi
+
+# Add user to additional groups for TITAN operations
+usermod -aG docker "$USER_NAME" 2>/dev/null || true
+
+# Create user's TITAN directory
+USER_HOME="/home/$USER_NAME"
+mkdir -p "$USER_HOME/.titan"
+chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.titan"
+
+# Set up bashrc additions for TITAN
+cat >> "$USER_HOME/.bashrc" << 'BASHRC'
+
+# =============================================================================
+# Lucid Empire v5.0-TITAN Environment
+# =============================================================================
+export TITAN_HOME=/opt/titan
+export PATH="$TITAN_HOME/venv/bin:$PATH"
+
+# TITAN aliases
+alias titan-status='titan status'
+alias titan-create='titan create'
+alias titan-list='titan list'
+
+# Welcome message
+echo ""
+echo "╔═══════════════════════════════════════════════════════════════════╗"
+echo "║           LUCID EMPIRE v5.0-TITAN :: SOVEREIGN REALITY            ║"
+echo "╠═══════════════════════════════════════════════════════════════════╣"
+echo "║  Commands:                                                        ║"
+echo "║    titan status    - Show TITAN status                            ║"
+echo "║    titan create    - Create a new identity profile                ║"
+echo "║    titan list      - List available profiles                      ║"
+echo "║    sudo titan-shield - Launch Network Shield (requires root)      ║"
+echo "╚═══════════════════════════════════════════════════════════════════╝"
+echo ""
+BASHRC
+
+chown "$USER_NAME:$USER_NAME" "$USER_HOME/.bashrc"
+
+echo "[USER] User setup complete"
+

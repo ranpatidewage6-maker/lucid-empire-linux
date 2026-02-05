@@ -1,0 +1,6 @@
+[org/gnome/desktop/interface]
+clock-show-date=true
+color-scheme='prefer-light'
+
+[org/gnome/shell]
+favorite-apps=['firefox_firefox.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop']

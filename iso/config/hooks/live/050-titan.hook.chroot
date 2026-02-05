@@ -1,0 +1,63 @@
+#!/bin/sh
+# =============================================================================
+# Lucid Empire v5.0-TITAN - TITAN Components Installation Hook
+# =============================================================================
+# This hook installs and configures the TITAN framework components
+# during the ISO build process.
+#
+# Source: Unified Agent [cite: 1]
+
+set -e
+
+echo "[TITAN] Installing TITAN framework components..."
+
+# Create TITAN directory structure
+mkdir -p /opt/titan/ebpf
+mkdir -p /opt/titan/profiles
+mkdir -p /opt/titan/logs
+
+# Copy TITAN components (these are copied from includes.chroot)
+# The actual files are placed via includes.chroot mechanism
+
+# Set up Python virtual environment for TITAN
+echo "[TITAN] Setting up Python environment..."
+python3 -m venv /opt/titan/venv
+/opt/titan/venv/bin/pip install --upgrade pip
+/opt/titan/venv/bin/pip install \
+    bcc \
+    pyroute2 \
+    psutil \
+    cryptography
+
+# Create TITAN launcher script
+cat > /usr/local/bin/titan << 'EOF'
+#!/bin/bash
+# Lucid Empire TITAN Launcher
+export TITAN_HOME=/opt/titan
+export PATH="$TITAN_HOME/venv/bin:$PATH"
+exec python3 "$TITAN_HOME/titan_core.py" "$@"
+EOF
+chmod +x /usr/local/bin/titan
+
+# Create Network Shield launcher
+cat > /usr/local/bin/titan-shield << 'EOF'
+#!/bin/bash
+# Lucid Empire Network Shield Launcher
+# Requires root privileges
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: Network Shield requires root privileges"
+    echo "Usage: sudo titan-shield [options]"
+    exit 1
+fi
+
+export TITAN_HOME=/opt/titan
+export PATH="$TITAN_HOME/venv/bin:$PATH"
+exec python3 "$TITAN_HOME/ebpf/network_shield_loader.py" "$@"
+EOF
+chmod +x /usr/local/bin/titan-shield
+
+# Set permissions
+chown -R root:root /opt/titan
+chmod -R 755 /opt/titan
+
+echo "[TITAN] TITAN framework installation complete."

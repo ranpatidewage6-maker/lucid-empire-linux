@@ -3,15 +3,16 @@
 # LUCID EMPIRE TITAN - Main Launcher (No-Fork Edition)
 # =============================================================================
 # ARCHITECTURE: Naked Browser Protocol
-# - Standard Firefox ESR / Chromium with Hardware Shield
+# - Standard Firefox ESR / Chromium with Kernel-Level Hardware Masking
 # - No forked browsers - true sovereignty
+# - NO LD_PRELOAD - Hardware masking via kernel module (Ring-0)
 # =============================================================================
 
 set -e
 
 TITAN_HOME="/opt/lucid-empire"
 TITAN_DATA="${HOME}/.lucid-empire"
-HARDWARE_SHIELD="${TITAN_HOME}/lib/libhardwareshield.so"
+KERNEL_MODULE="/opt/lucid-empire/kernel-modules/titan_hw.ko"
 LOG_DIR="${TITAN_DATA}/logs"
 VENV_PATH="${TITAN_HOME}/venv"
 
@@ -25,6 +26,7 @@ exec > >(tee -a "${LOG_FILE}") 2>&1
 echo "=============================================="
 echo "  LUCID EMPIRE v5.0-TITAN (No-Fork Edition)"
 echo "  Architecture: Naked Browser Protocol"
+echo "  Hardware Masking: Kernel Module (Ring-0)"
 echo "  Starting Console..."
 echo "=============================================="
 echo ""
@@ -32,12 +34,23 @@ echo "[$(date)] TITAN Console starting..."
 echo "[$(date)] Data directory: ${TITAN_DATA}"
 echo "[$(date)] Log file: ${LOG_FILE}"
 
-# Check for Hardware Shield
-if [[ -f "${HARDWARE_SHIELD}" ]]; then
-    echo "[$(date)] Hardware Shield: COMPILED"
+# Check for Kernel Module (Hardware Shield v2)
+if lsmod | grep -q titan_hw; then
+    echo "[$(date)] ✓ Kernel Hardware Masking: ACTIVE"
+    echo "[$(date)] ✓ Zero-Detect Protocol: OPERATIONAL"
+elif [[ -f "${KERNEL_MODULE}" ]]; then
+    echo "[$(date)] ⚠ Kernel Module exists but not loaded"
+    echo "[$(date)] Run: sudo systemctl start lucid-titan.service"
 else
-    echo "[$(date)] WARNING: Hardware Shield not compiled"
-    echo "[$(date)] Run: make -C ${TITAN_HOME}/lib"
+    echo "[$(date)] ⚠ Kernel Module not found: ${KERNEL_MODULE}"
+    echo "[$(date)] Hardware masking may not be active"
+fi
+
+# Verify NO LD_PRELOAD (security check)
+if [[ -n "${LD_PRELOAD}" ]]; then
+    echo "[$(date)] ⚠ WARNING: LD_PRELOAD detected: ${LD_PRELOAD}"
+    echo "[$(date)] This may indicate userspace interception (detectable)"
+    echo "[$(date)] Kernel module should handle all masking"
 fi
 
 # Check for eBPF capabilities

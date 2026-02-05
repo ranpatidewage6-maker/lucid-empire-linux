@@ -1,0 +1,12 @@
+{
+  "profile_name": "default",
+  "cpu_type": "intel",
+  "cpu_cores": 12,
+  "dmi": {
+    "product_name": "OptiPlex 7090",
+    "product_uuid": "ecaeda29-229b-4538-8755-7790638fdf3f",
+    "board_vendor": "ASUS",
+    "sys_vendor": "ASUS"
+  },
+  "generated_at": "build-time"
+}

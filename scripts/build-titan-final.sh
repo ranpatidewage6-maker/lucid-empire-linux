@@ -88,9 +88,6 @@ lb config \
     --parent-mirror-chroot-security "http://deb.debian.org/debian-security/" \
     --parent-mirror-binary "http://deb.debian.org/debian/" \
     --parent-mirror-binary-security "http://deb.debian.org/debian-security/" \
-    --security-updates true \
-    --volatile false \
-    --backports false \
     --linux-packages "linux-image linux-headers" \
     --bootappend-live "boot=live components quiet splash persistence"
 

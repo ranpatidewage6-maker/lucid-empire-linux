@@ -336,8 +336,3 @@ int quic_blocker(struct xdp_md *ctx) {
 }
 
 char LICENSE[] SEC("license") = "GPL";
-    
-    return 0; /* TC_ACT_OK - continue processing */
-}
-
-char LICENSE[] SEC("license") = "GPL";

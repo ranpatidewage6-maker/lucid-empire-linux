@@ -1,8 +1,14 @@
 """
 LUCID EMPIRE v5.0-TITAN - Commerce Vault
 =========================================
-Trust token generation and management for e-commerce platforms.
-Generates Stripe, PayPal, and Adyen compatible trust artifacts.
+Pre-aged payment gateway tokens and device fingerprints for e-commerce operations.
+
+Implements "Trust Anchor" generation for:
+- Stripe: __stripe_mid, __stripe_sid machine IDs
+- Adyen: _RP_UID and 3DS2 device fingerprints
+- PayPal: session tokens and device recognition
+
+Source: Technical Blueprint Section 5.3
 """
 
 import hashlib
@@ -18,8 +24,158 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class StripeToken:
+    """Stripe machine ID and device identifier."""
+    mid: str  # Machine ID
+    sid: str  # Session ID
+    device_hash: str
+    created_timestamp: int
+    last_used: int
+    
+    @classmethod
+    def generate(cls, profile_uuid: str, backdated_days: int = 90) -> 'StripeToken':
+        """
+        Generate a realistic Stripe __stripe_mid token.
+        
+        Format: version|timestamp|device_hash|signature
+        
+        Args:
+            profile_uuid: The profile's master UUID
+            backdated_days: Days to backdate the token creation
+        """
+        # Calculate backdated timestamp
+        now = time.time()
+        backdated_time = now - (backdated_days * 86400)
+        timestamp = int(backdated_time * 1000)  # milliseconds
+        
+        # Generate device hash from profile UUID
+        uuid_bytes = profile_uuid.encode()
+        device_hash = hashlib.sha256(uuid_bytes).hexdigest()[:16]
+        
+        # Create signature (simplified - Stripe's actual format is proprietary)
+        signature_input = f"{profile_uuid}:{timestamp}:{device_hash}".encode()
+        signature = hmac.new(
+            b"stripe_secret_key",
+            signature_input,
+            hashlib.sha256
+        ).hexdigest()[:8]
+        
+        # Construct the token
+        mid = f"m_{device_hash}_{timestamp}_{signature}"
+        sid = f"s_{str(uuid.uuid4()).replace('-', '')}"
+        
+        return cls(
+            mid=mid,
+            sid=sid,
+            device_hash=device_hash,
+            created_timestamp=int(backdated_time),
+            last_used=int(backdated_time + (86400 * 7))  # Used a week after creation
+        )
+
+
+@dataclass
+class AdyenToken:
+    """Adyen payment processor device fingerprint."""
+    rp_uid: str  # Recurring Payment UID
+    device_fingerprint: str
+    device_id: str
+    version: str = "2.0"
+    created_timestamp: int = 0
+    
+    @classmethod
+    def generate(cls, profile_uuid: str, backdated_days: int = 90) -> 'AdyenToken':
+        """
+        Generate Adyen _RP_UID and device fingerprint.
+        
+        Adyen uses device fingerprinting for fraud detection.
+        Pre-aged tokens appear as known devices to the payment processor.
+        
+        Args:
+            profile_uuid: The profile's master UUID
+            backdated_days: Days to backdate the token creation
+        """
+        backdated_time = time.time() - (backdated_days * 86400)
+        
+        # Generate device ID (base64-encoded UUID-like structure)
+        uuid_bytes = profile_uuid.encode()
+        device_id = hashlib.sha256(uuid_bytes).hexdigest()[:16]
+        
+        # Generate device fingerprint (complex multi-factor)
+        fp_components = {
+            "device_id": device_id,
+            "screen_resolution": "1920x1080",
+            "browser_language": "en-US",
+            "tz_offset": "-300",
+            "java_enabled": False,
+            "plugin_count": 0,
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "accept_header": "text/html,application/xhtml+xml",
+        }
+        
+        fingerprint_str = json.dumps(fp_components, sort_keys=True)
+        device_fingerprint = hashlib.sha256(fingerprint_str.encode()).hexdigest()
+        
+        # Generate RP UID (Recurring Payment unique identifier)
+        rp_uid = f"RP_{device_id}_{int(backdated_time)}"
+        
+        return cls(
+            rp_uid=rp_uid,
+            device_fingerprint=device_fingerprint,
+            device_id=device_id,
+            version="2.0",
+            created_timestamp=int(backdated_time)
+        )
+
+
+@dataclass
+class PayPalToken:
+    """PayPal session token and device recognition."""
+    session_id: str
+    device_id: str
+    risk_id: str
+    cookie_value: str
+    created_timestamp: int
+    
+    @classmethod
+    def generate(cls, profile_uuid: str, backdated_days: int = 90) -> 'PayPalToken':
+        """
+        Generate PayPal session and device tokens.
+        
+        PayPal tracks devices to detect anomalies in payment behavior.
+        
+        Args:
+            profile_uuid: The profile's master UUID
+            backdated_days: Days to backdate the token creation
+        """
+        backdated_time = time.time() - (backdated_days * 86400)
+        
+        # Generate session ID
+        session_bytes = hashlib.sha256(profile_uuid.encode()).digest()
+        session_id = session_bytes.hex()[:24].upper()
+        
+        # Generate device ID
+        device_id = str(uuid.UUID(int=int.from_bytes(session_bytes[:16], 'big')))
+        
+        # Generate risk ID (PayPal's internal device fingerprint)
+        risk_input = f"{device_id}:{int(backdated_time)}".encode()
+        risk_id = hashlib.sha256(risk_input).hexdigest()[:16]
+        
+        # Cookie value (base64-like encoding of device info)
+        cookie_input = f"{device_id}|{int(backdated_time)}|{risk_id}"
+        cookie_value = hashlib.sha256(cookie_input.encode()).hexdigest()
+        
+        return cls(
+            session_id=session_id,
+            device_id=device_id,
+            risk_id=risk_id,
+            cookie_value=cookie_value,
+            created_timestamp=int(backdated_time)
+        )
+
+
+@dataclass
 class TrustToken:
-    """E-commerce platform trust token."""
+    """E-commerce platform trust token (legacy compatibility)."""
     platform: str
     token_id: str
     device_id: str

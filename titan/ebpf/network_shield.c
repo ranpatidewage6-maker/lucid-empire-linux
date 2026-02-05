@@ -1,25 +1,30 @@
 /*
- * Lucid Empire v5.0-TITAN - eBPF Network Shield
- * =============================================================================
- * This eBPF program implements kernel-level packet manipulation for
- * Passive OS Fingerprint (p0f) evasion. It intercepts outbound packets
- * at the XDP hook point and rewrites TCP/IP header fields to match
- * the signature of the target persona (Windows, macOS, etc.).
- *
- * Key Features:
- * - TTL Modification: Changes IP TTL to match target OS (e.g., 128 for Windows)
- * - TCP Window Size: Adjusts to match target OS defaults
- * - TCP Options: Reorders/modifies MSS, SACK, Timestamps
- *
- * Latency: ~50 nanoseconds per packet (kernel-level execution)
- *
- * Source: Unified Agent [cite: 1, 14, 16]
+ * TITAN Network Shield - eBPF/XDP Network Packet Masquerading
+ * 
+ * Lucid Empire v5.0-TITAN
+ * Architecture: Kernel-level network signature spoofing via eBPF/XDP
+ * 
+ * This eBPF program runs at the XDP hook to perform real-time TCP/IP header
+ * rewriting, allowing transparent spoofing of:
+ * - IP TTL (Time-To-Live) - masquerade Linux as Windows/macOS
+ * - TCP Window Size - match target OS signature
+ * - TCP Timestamps - enable/disable based on persona
+ * - TCP Options - reorder to match target browser/OS
+ * - QUIC/UDP blocking - force fallback to HTTP/2 over TCP
+ * 
+ * Execution: ~50 nanoseconds per packet at wire speed in NIC driver
+ * 
+ * Compiled for Linux 5.x+ with LLVM/Clang
  *
  * Compilation:
  *   clang -O2 -target bpf -c network_shield.c -o network_shield.o
  *
- * Loading:
+ * Loading (XDP):
  *   ip link set dev <interface> xdp obj network_shield.o sec xdp
+ *
+ * Loading (TC):
+ *   tc qdisc add dev <interface> clsact
+ *   tc filter add dev <interface> egress bpf da obj network_shield.o sec classifier
  */
 
 #include <linux/bpf.h>
@@ -27,6 +32,7 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
+#include <linux/in.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
@@ -288,6 +294,48 @@ int network_shield_tc(struct __sk_buff *skb) {
         iph->ttl = sig->ttl;
         iph->check = ip_checksum(iph);
     }
+    
+    return 0; /* TC_ACT_OK */
+}
+
+/*
+ * QUIC Blocker Program
+ * 
+ * Blocks UDP port 443 (QUIC/HTTP3) to force fallback to HTTP/2 over TCP
+ * where the Network Shield has full control.
+ */
+SEC("xdp")
+int quic_blocker(struct xdp_md *ctx) {
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+    
+    struct ethhdr *eth = data;
+    if ((void *)(eth + 1) > data_end)
+        return XDP_PASS;
+    
+    if (eth->h_proto != bpf_htons(ETH_P_IP))
+        return XDP_PASS;
+    
+    struct iphdr *iph = (void *)(eth + 1);
+    if ((void *)(iph + 1) > data_end)
+        return XDP_PASS;
+    
+    if (iph->protocol != IPPROTO_UDP)
+        return XDP_PASS;
+    
+    struct udphdr *udph = (void *)iph + (iph->ihl * 4);
+    if ((void *)(udph + 1) > data_end)
+        return XDP_PASS;
+    
+    /* Drop UDP port 443 (QUIC) */
+    if (udph->dest == bpf_htons(443)) {
+        return XDP_DROP;
+    }
+    
+    return XDP_PASS;
+}
+
+char LICENSE[] SEC("license") = "GPL";
     
     return 0; /* TC_ACT_OK - continue processing */
 }

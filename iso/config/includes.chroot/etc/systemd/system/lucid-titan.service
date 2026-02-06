@@ -1,23 +1,14 @@
 [Unit]
-Description=LUCID EMPIRE TITAN - Hardware Masking Kernel Module
-Documentation=https://github.com/ranpatidewage6-maker/lucid-empire-linux
-After=local-fs.target
-Before=display-manager.service gdm.service lightdm.service sddm.service
-DefaultDependencies=no
-ConditionPathExists=/opt/lucid-empire/kernel-modules/titan_hw.ko
-ConditionPathExists=/opt/lucid-empire/profiles/active
+Description=Lucid Titan V5 Identity Daemon
+After=network.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStartPre=/bin/sh -c 'echo "TITAN: Loading hardware masking module..." > /dev/kmsg'
-ExecStart=/usr/sbin/insmod /opt/lucid-empire/kernel-modules/titan_hw.ko
-ExecStartPost=/bin/sh -c 'echo "TITAN: Hardware masking active" > /dev/kmsg'
-ExecStop=/usr/sbin/rmmod titan_hw
-ExecStopPost=/bin/sh -c 'echo "TITAN: Hardware masking deactivated" > /dev/kmsg'
-TimeoutSec=10
-StandardOutput=journal
-StandardError=journal
+Type=simple
+User=root
+WorkingDirectory=/opt/lucid-empire
+ExecStart=/usr/bin/python3 /opt/lucid-empire/titan_core.py
+Restart=always
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target

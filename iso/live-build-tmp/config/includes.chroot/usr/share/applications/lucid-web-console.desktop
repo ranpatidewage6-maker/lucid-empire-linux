@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=LUCID Web Console
+GenericName=Web Dashboard
+Comment=Open TITAN Web Console in Browser
+Exec=xdg-open http://127.0.0.1:8080
+Icon=applications-internet
+Terminal=false
+Categories=Network;System;
+Keywords=console;dashboard;web;

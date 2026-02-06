@@ -16,7 +16,35 @@ set -o pipefail # Return the exit status of the last command in the pipe that fa
 # --- Configuration ---
 ISO_DIR="$(pwd)/iso"
 CONFIG_DIR="${ISO_DIR}/config"
-BUILD_DIR="${ISO_DIR}/live-build-tmp"
+BUILD_DIR="${BUILD_DIR:-${ISO_DIR}/live-build-tmp}"
+
+# If the workspace filesystem is mounted with 'noexec' (common in container
+# environments), debootstrap/live-build will fail. Try to execute a small
+# test script in the build dir — if that fails, fall back to a safe /tmp
+# directory which allows execution.
+try_exec_test() {
+    local testdir="$1/test-exec-check"
+    rm -rf "$testdir" || true
+    mkdir -p "$testdir"
+    cat > "$testdir/test.sh" <<'SH'
+#!/bin/sh
+exit 0
+SH
+    chmod +x "$testdir/test.sh" || true
+    if "$testdir/test.sh" >/dev/null 2>&1; then
+        rm -rf "$testdir"
+        return 0
+    else
+        rm -rf "$testdir"
+        return 1
+    fi
+}
+
+if ! try_exec_test "${BUILD_DIR}"; then
+    TMP_BUILD_DIR="/tmp/lucid-iso-build-$$"
+    echo "[BUILD] :: Workspace disallows execution; using ${TMP_BUILD_DIR} as build directory"
+    BUILD_DIR="$TMP_BUILD_DIR"
+fi
 TITAN_DIR="$(pwd)/titan"
 ISO_FILENAME="lucid-empire-titan-v5.0.iso"
 DISTRIBUTION="bookworm" # Debian 12
@@ -65,6 +93,8 @@ configure_build() {
     lb config noauto \
         --architecture "${ARCHITECTURE}" \
         --distribution "${DISTRIBUTION}" \
+        --mirror-bootstrap "http://deb.debian.org/debian/" \
+        --mirror-binary "http://deb.debian.org/debian/" \
         --archive-areas "main contrib non-free non-free-firmware" \
         --debian-installer live \
         --bootappend-live "boot=live components quiet splash" \

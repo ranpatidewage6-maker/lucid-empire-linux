@@ -1,0 +1,9 @@
+# Ignore build artifacts and VM images
+iso/*.iso
+iso/*.log
+iso/*.out
+iso/*.qcow2
+iso/live-build-tmp/
+# Local runtime
+.tmp/
+

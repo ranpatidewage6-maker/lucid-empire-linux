@@ -227,6 +227,7 @@ def api_create_profile():
     name = data.get('name', '').strip()
     aging = data.get('aging_days', 90)
     template = data.get('template', 'us_ecom_premium')
+    windsurf_token = data.get('windsurf_token', '').strip()
     
     if not name:
         return jsonify({'success': False, 'error': 'Profile name required'}), 400
@@ -236,12 +237,26 @@ def api_create_profile():
             ['/opt/lucid-empire/bin/lucid-profile-mgr', 'create', name, str(aging), template],
             capture_output=True, text=True, timeout=30
         )
-        
-        return jsonify({
+
+        response = {
             'success': result.returncode == 0,
             'output': result.stdout + result.stderr,
             'profile': name
-        })
+        }
+
+        # If creation succeeded and a Windsurf token was provided, store it per-profile
+        if result.returncode == 0 and windsurf_token:
+            try:
+                profile_dir = PROFILES_DIR / name
+                profile_dir.mkdir(parents=True, exist_ok=True)
+                token_file = profile_dir / 'windsurf_token'
+                token_file.write_text(windsurf_token)
+                response['windsurf_token_saved'] = True
+            except Exception as e:
+                response['windsurf_token_saved'] = False
+                response['windsurf_token_error'] = str(e)
+
+        return jsonify(response)
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -303,7 +318,6 @@ def api_launch_browser():
     TITAN V5 FINAL - No-Fork Edition:
     Uses standard Firefox ESR / Chromium with Hardware Shield.
     """
-    data = request.json or {}
     browser = data.get('browser', 'firefox')
     
     browser_map = {
@@ -320,17 +334,7 @@ def api_launch_browser():
     try:
         subprocess.Popen([cmd], start_new_session=True)
         return jsonify({'success': True, 'message': f'{browser} launched with Hardware Shield'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
-
-@app.route('/api/presets')
-def api_presets():
-    """API: List available presets."""
-    return jsonify({'presets': list_presets()})
-
-
-@app.route('/api/ebpf/status')
 def api_ebpf_status():
     """API: Get eBPF program status."""
     status = {'loaded': False, 'programs': [], 'interface': 'unknown'}

@@ -1,12 +1,13 @@
 # LUCID CONSOLE VERIFICATION REPORT
 
-## Complete Analysis of User Inputs and Tabs
+## Complete Analysis of Console Architecture and Functionality
 
 ---
 
 > **Analyzed Files:**
-> - `TITAN_CONSOLE.py` (1,271 lines) - Tkinter-based console
-> - `lucid_unified_panel.py` (1,820 lines) - PyQt6-based console
+> - `TITAN_CONSOLE.py` (786 lines) - PyQt6-based GUI console
+> - `console/app.py` (406 lines) - Flask web dashboard
+> - `lucid-console.service` (27 lines) - systemd service configuration
 >
 > **Date:** February 6, 2026
 
@@ -14,223 +15,145 @@
 
 ## 📊 Summary
 
-| Console | Framework | Tabs | Input Fields | Actions |
-|---------|-----------|------|--------------|---------|
-| **TITAN_CONSOLE** | Tkinter | 3 Panels | 25+ | 3 buttons |
-| **Unified Panel** | PyQt6 | 5 Tabs | 40+ | 5 buttons |
+| Console | Framework | Interface | Tabs/Routes | Validation | Service |
+|---------|-----------|-----------|-------------|------------|---------|
+| **TITAN_CONSOLE** | PyQt6 | Desktop GUI | 4 Tabs | 8-Point Matrix | Local |
+| **Web Dashboard** | Flask | Web UI | REST API | System Status | systemd |
 
 ---
 
 ## 🔷 TITAN CONSOLE (TITAN_CONSOLE.py)
 
-### Architecture: 3-Panel Layout
-
-```
-┌──────────────────┬──────────────────┬──────────────────┐
-│  LEFT PANEL      │  MIDDLE PANEL    │  RIGHT PANEL     │
-│  Identity &      │  Temporal &      │  Pre-Flight      │
-│  Network Input   │  Target Config   │  Panel           │
-└──────────────────┴──────────────────┴──────────────────┘
-│                    BOTTOM SECTION                      │
-│  [FABRICATE REALITY]  [ENTER OBLIVION]  [INCINERATE]  │
-└────────────────────────────────────────────────────────┘
-│                    OPERATION LOG                       │
-└────────────────────────────────────────────────────────┘
-```
-
-### LEFT PANEL: Identity & Network Injection
-
-| Section | Input Field | Type | Default/Placeholder |
-|---------|-------------|------|---------------------|
-| **1. Network Tunnel** | Proxy | Entry | `socks5://user:pass@192.168.1.1:1080` |
-| **2. Commerce Trust** | PAN (Card Number) | Entry | (empty) |
-| | CVV | Entry (masked) | (empty) |
-| | Expiry | Entry | `MM/YY` |
-| | Cardholder Name | Entry | (empty) |
-| **3. Identity Core** | First Name | Entry | (empty) |
-| | Last Name | Entry | (empty) |
-| | Billing Address | Entry | (empty) |
-| | City | Entry | (empty) |
-| | State | Entry | (empty) |
-| | ZIP | Entry | (empty) |
-| | Date of Birth | Entry | `MM/DD/YYYY` |
-| | Email | Entry | (empty) |
-| | Phone | Entry | (empty) |
-
-### MIDDLE PANEL: Temporal & Target Config
-
-| Section | Input Field | Type | Options/Default |
-|---------|-------------|------|-----------------|
-| **4. Aging Period** | Days | RadioButton | 30, 45, **60**, 90 |
-| **5. Target Designator** | Target Website | Entry | `https://eneba.com` |
-| | Target Product | Entry | `$300 Crypto Gift Card` |
-| **6. Profile Options** | Profile Name | Entry | `Titan_YYYYMMDD_HHMMSS` |
-| | Persona Type | ComboBox | software_engineer, student, business_owner, gamer, crypto_trader, freelancer |
-| **7. Warming Behavior** | Google Searches | Checkbox | ✅ |
-| | Social Media | Checkbox | ✅ |
-| | Shopping Sites | Checkbox | ✅ |
-| | Target Site Visits | Checkbox | ✅ |
-
-### RIGHT PANEL: Pre-Flight Panel
-
-| Check | Name | Description |
-|-------|------|-------------|
-| ⬤ | PROXY TUNNEL | Is Proxy Alive? + Latency Check |
-| ⬤ | GEO-MATCH | Proxy IP Zip == Fullz Billing Zip? |
-| ⬤ | COMMERCE VAULT | Stripe/Adyen/PayPal Tokens Injected |
-| ⬤ | TIME SYNC | System Time Spoofed to Proxy TZ |
-| ⬤ | IP REPUTATION | Proxy IP Clean (IPQualityScore) |
-| ⬤ | JA4 FINGERPRINT | TLS/HTTP2 Matches Chrome 120 |
-| ⬤ | CANVAS NOISE | Perlin Noise Hash Consistent |
-| ⬤ | GHOST MOTOR | GAN Trajectory Generator Ready |
-
-**Status Indicators:** ⚫ (dim) → 🔴 (fail) → 🟢 (pass)
-
-### ACTION BUTTONS
-
-| Button | Action | State |
-|--------|--------|-------|
-| **◈ FABRICATE REALITY ◈** | Runs 10-phase profile generation | Always enabled |
-| **◈ ENTER OBLIVION ◈** | Launch browser with profile | Disabled until all checks green |
-| **🔥 INCINERATE** | Delete profile permanently | Always enabled |
-
-### Fabrication Phases
-
-1. Validate Proxy Tunnel
-2. Check Geo-Match
-3. Inject Commerce Vault Tokens
-4. Synchronize Temporal Data
-5. Check IP Reputation
-6. Validate JA4 Fingerprint
-7. Validate Canvas Noise Consistency
-8. Initialize Ghost Motor GAN
-9. Generate Warmed Profile
-10. Export Zero Detect Configuration
-
----
-
-## 🔷 UNIFIED CONTROL PANEL (lucid_unified_panel.py)
-
-### Architecture: Tab-Based Layout
+### Architecture: 4-Tab PyQt6 Layout
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  HEADER: LUCID EMPIRE v5.0.0-TITAN :: UNIFIED CONTROL PANEL        │
-├───────────────┬───────────────────────────────────────┬─────────────┤
-│  PROFILES     │  TABS                                  │  ACTIONS    │
-│  LIST         │  ┌─────────────────────────────────┐  │             │
-│               │  │ PROFILE │ LOCATION │ DEVICE │   │  │  [SAVE]     │
-│  • Profile 1  │  │ COMMERCE │ PAYMENT              │  │  [VALIDATE] │
-│  • Profile 2  │  └─────────────────────────────────┘  │  [LAUNCH]   │
-│               │  (Tab content area)                    │             │
-│  [NEW]        │                                        │  Progress   │
-│  [DELETE]     │                                        │  ────────── │
-│               │                                        │  LOG        │
-└───────────────┴───────────────────────────────────────┴─────────────┘
+│  🔮 LUCID EMPIRE :: TITAN CONSOLE v5.0                             │
+├─────────────────────────────────────────────────────────────────────┤
+│  📋 Profiles │ 🌐 Browser │ ✓ Pre-Flight │ 🖥️ System              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  [Tab Content Area - Profile Management, Browser Launch, etc.]     │
+│                                                                     │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  Status: Ready                                                      │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### TAB 1: PROFILE
+### TAB 1: 📋 Profiles
 
-| Input Field | Type | Default/Placeholder |
-|-------------|------|---------------------|
-| Profile ID | QLineEdit | `LUCID-USER-001` |
-| Full Name | QLineEdit | `John Smith` |
-| Email | QLineEdit | `john.smith@example.com` |
-| Age | QSpinBox | 18-80, default: 28 |
-| Occupation | QLineEdit | `Software Engineer` |
-| Employer | QLineEdit | `Tech Corp Inc.` |
-| Profile Age (days) | QSpinBox | 1-365, default: 90 |
-| Trust Score | QSpinBox | 0-100, default: 85 |
+| Section | Component | Description |
+|---------|-----------|-------------|
+| **Profile List** | QListWidget | Available profiles with metadata |
+| **Profile Details** | QTextEdit | JSON display of selected profile |
+| **Actions** | QPushButton | ➕ Create, 🔄 Refresh, 📂 Load, 🔥 Burn |
 
-### TAB 2: LOCATION (No-Proxy Method)
+### TAB 2: 🌐 Browser
 
-| Input Field | Type | Options/Default |
-|-------------|------|-----------------|
-| Location Preset | QComboBox | See LOCATION_DATABASE below |
-| Latitude | QDoubleSpinBox | -90 to 90, default: 40.7590 |
-| Longitude | QDoubleSpinBox | -180 to 180, default: -73.9845 |
-| Timezone | QLineEdit | `America/New_York` |
-| Locale | QLineEdit | `en-US` |
-| Language | QLineEdit | `en-US,en` |
+| Section | Component | Description |
+|---------|-----------|-------------|
+| **Active Profile** | QLabel | Currently loaded profile status |
+| **Browser Controls** | QPushButton | Launch browser with active profile |
+| **Session Info** | QTextEdit | Browser session details |
 
-**Location Presets (LOCATION_DATABASE):**
-- New York, NY
-- Los Angeles, CA
-- Chicago, IL
-- Houston, TX
-- Miami, FL
-- Seattle, WA
-- (More cities available)
+### TAB 3: ✓ Pre-Flight
 
-### TAB 3: DEVICE
+| Check | Name | Description | Validation |
+|-------|------|-------------|------------|
+| 1 | **Profile Files** | profile.json exists and valid | File integrity |
+| 2 | **Browser Databases** | SQLite databases consistent | DB validation |
+| 3 | **Network Config** | Network settings ready | Connectivity |
+| 4 | **eBPF Status** | eBPF programs loaded | Kernel modules |
+| 5 | **Time Offset** | Time synchronization | Temporal sync |
+| 6 | **Fingerprint Seeds** | Canvas/WebGL seeds generated | Entropy check |
+| 7 | **Cookie Integrity** | Cookies properly aged | Age validation |
+| 8 | **No Conflicts** | No conflicting profiles active | Conflict check |
 
-| Input Field | Type | Options |
-|-------------|------|---------|
-| Operating System | QComboBox | Windows 11 Pro, Windows 10 Pro, macOS Sonoma, Ubuntu 22.04 |
-| Browser | QComboBox | Chrome 120, Chrome 119, Firefox 121, Edge 120 |
-| Screen Resolution | QComboBox | 1920x1080, 2560x1440, 1366x768, 1536x864, 1440x900 |
-| Enable Canvas Noise | QCheckBox | ✅ (checked by default) |
-| Enable WebGL Masking | QCheckBox | ✅ (checked by default) |
-| Enable Audio Fingerprint Noise | QCheckBox | ✅ (checked by default) |
-| Block WebRTC Leaks | QCheckBox | ✅ (checked by default) |
-| Enable Human-like Behavior | QCheckBox | ✅ (checked by default) |
+**Status Indicators:** ⚫ (pending) → 🔴 (fail) → 🟢 (pass)
 
-### TAB 4: COMMERCE
+### TAB 4: 🖥️ System
 
-| Input Field | Type | Default |
-|-------------|------|---------|
-| Simulated Purchases | QSpinBox | 0-100, default: 10 |
-| Generate Stripe Tokens | QCheckBox | ✅ |
-| Generate Adyen Tokens | QCheckBox | ✅ |
-| Generate PayPal Fingerprint | QCheckBox | ✅ |
+| Section | Component | Description |
+|---------|-----------|-------------|
+| **System Status** | QLabel | OS, kernel, uptime information |
+| **TITAN Version** | QLabel | Current TITAN version |
+| **eBPF Status** | QLabel | eBPF module status |
+| **Active Profiles** | QLabel | Number of active profiles |
 
-### TAB 5: PAYMENT
+### Profile Creation Dialog
 
-#### Card Details Group
+| Field | Type | Default | Validation |
+|-------|------|---------|------------|
+| Profile Name | QLineEdit | `US_Shopper_01` | Required |
+| Profile Age | QSpinBox | 90 days | 0-365 range |
+| Target OS | QComboBox | windows, macos, linux, android, ios | Required |
+| Browser Type | QComboBox | chrome, firefox, safari, edge | Required |
 
-| Input Field | Type | Placeholder/Format |
-|-------------|------|-------------------|
-| Cardholder Name | QLineEdit | `JOHN SMITH (as shown on card)` |
-| Card Number | QLineEdit | `4242 4242 4242 4242` (auto-formatted) |
-| Expiry (MM/YY) | QLineEdit | `12/28` (max 5 chars) |
-| CVV | QLineEdit (password) | `123` (max 4 chars) |
-| Card Type | QComboBox | Visa, Mastercard, American Express, Discover, JCB, UnionPay |
+---
 
-#### Billing Address Group
+## 🔷 WEB DASHBOARD (console/app.py)
 
-| Input Field | Type | Placeholder |
-|-------------|------|-------------|
-| Street | QLineEdit | `123 Main Street, Apt 4B` |
-| City | QLineEdit | `New York` |
-| State | QLineEdit | `NY` (max 2 chars) |
-| ZIP Code | QLineEdit | `10001` (max 10 chars) |
-| Country | QComboBox | United States, United Kingdom, Canada, Australia, Germany, France, Japan |
+### Architecture: Flask Web Application (Port 8080)
 
-#### Purchase History Simulation
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  LUCID EMPIRE TITAN - Web Console Dashboard                        │
+│  http://localhost:8080                                              │
+├─────────────────────────────────────────────────────────────────────┤
+│  Dashboard | Profiles | System Status | API Endpoints              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  [Active Profile Status] [System Information] [Profile List]       │
+│                                                                     │
+│  [Profile Management Controls] [System Status Indicators]          │
+│                                                                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  Status: Web Console Running | Port: 8080 | Service: systemd       │
+└─────────────────────────────────────────────────────────────────────┘
+```
 
-| Input Field | Type | Default |
-|-------------|------|---------|
-| Number of Past Purchases | QSpinBox | 1-100, default: 15 |
-| Avg. Purchase Amount ($) | QSpinBox | 10-1000, default: 75 |
-| E-commerce merchants | QCheckBox | ✅ |
-| Subscription merchants | QCheckBox | ✅ |
-| Retail merchants | QCheckBox | ✅ |
-| Food & Delivery merchants | QCheckBox | ❌ |
+### REST API Endpoints
 
-**Test Cards Displayed:**
-- Visa: `4242424242424242`
-- MC: `5555555555554444`
-- Amex: `378282246310005`
+| Route | Method | Description | Response |
+|-------|--------|-------------|----------|
+| `/` | GET | Main dashboard page | HTML template |
+| `/api/status` | GET | System status information | JSON |
+| `/api/profiles` | GET | List all profiles | JSON array |
+| `/api/profiles/<id>` | GET | Get specific profile | JSON |
+| `/api/profiles/<id>` | DELETE | Delete profile | JSON status |
+| `/api/presets` | GET | List profile presets | JSON array |
 
-### ACTION BUTTONS (Right Panel)
+### System Status Information
 
-| Button | Action | State |
-|--------|--------|-------|
-| **SAVE PROFILE** | Create/update profile | Always enabled |
-| **PRE-FLIGHT CHECK** | Run validation | Requires selected profile |
-| **LAUNCH BROWSER** | Launch Camoufox | Requires selected profile |
-| **NEW** | Clear form for new profile | Always enabled |
-| **DELETE** | Delete selected profile | Requires selected profile |
+| Field | Source | Description |
+|-------|--------|-------------|
+| **eBPF Status** | `ip link show` | XDP program loaded status |
+| **Active Profile** | Profile directory | Currently loaded profile name |
+| **Network Interface** | `ip route` | Default network interface |
+| **Kernel Version** | `uname -r` | Linux kernel version |
+| **Uptime** | `uptime -p` | System uptime |
+| **TITAN Version** | VERSION file | Current TITAN version |
+
+### Profile Management
+
+| Function | Implementation | Description |
+|----------|----------------|-------------|
+| **List Profiles** | Directory scan | Scan ~/.lucid-empire/profiles |
+| **Get Active** | File read | Read active/profile.json |
+| **List Presets** | Directory scan | Scan presets/*.json |
+| **Profile Metadata** | JSON parse | Extract profile information |
+
+### Service Configuration (systemd)
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| **Service Type** | simple | Standard service |
+| **User/Group** | root | Runs as root |
+| **Working Directory** | /opt/lucid-empire/console | Flask app location |
+| **Environment** | TITAN_HOME, FLASK_ENV | Environment variables |
+| **Restart Policy** | always | Auto-restart on failure |
+| **Security** | NoNewPrivileges=false | Security settings |
 
 ---
 
